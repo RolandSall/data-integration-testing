@@ -13,6 +13,7 @@ import { appendFileSync } from 'node:fs';
 import { createDataIntegrationTestContext } from '@integration-testing/data';
 export const record = (event) => appendFileSync(process.env.CASE_TRACE, event + '\\n');
 const scenario = process.env.CASE_NAME;
+let rollbackAttempts = 0;
 export const dataContext = createDataIntegrationTestContext({
   getResources: () => 'owned resources',
   createDatabase: async () => { record('create'); return {}; },
@@ -28,6 +29,8 @@ export const dataContext = createDataIntegrationTestContext({
     try { return await work({ writes: [] }); }
     finally {
       record('rollback');
+      rollbackAttempts++;
+      if (scenario === 'retry-rollback-failure' && rollbackAttempts === 1) throw new Error('rollback failure');
       if (scenario === 'rollback-failure' || scenario === 'expected-rollback-failure') throw new Error('rollback failure');
       if (scenario === 'rollback-timeout') await new Promise(() => {});
     }
@@ -64,6 +67,7 @@ const cases = [
   { name: 'assertion-cleanup-failure', pass: false, body: `declareDataIntegrationTest(); test('body', () => { throw new Error('assertion failure'); });`, error: 'assertion failure', additionalError: 'close failure', transactions: 1 },
   { name: 'cleanup-failure', pass: false, body: `declareDataIntegrationTest(); test('body', () => {});`, error: 'close failure', transactions: 1 },
   { name: 'test-timeout', pass: false, body: `declareDataIntegrationTest(); test('timeout', async () => { await new Promise(() => {}); }, 40);`, error: 'timeout|timed out|Exceeded timeout', transactions: 1 },
+  { name: 'retry-rollback-failure', pass: false, body: `declareDataIntegrationTest(); RETRY_SETUP test('retry cleanup', RETRY_OPTIONS () => {});`, error: 'rollback failure', transactions: 2 },
   { name: 'retry', pass: true, body: `declareDataIntegrationTest(); RETRY_SETUP let attempts = 0; test('retry', RETRY_OPTIONS () => { assert.equal(++attempts, 2); assert.deepEqual(dataContext.getCurrentContext().client.writes, []); });`, transactions: 2 },
   { name: 'skipped-file', pass: true, body: `declareDataIntegrationTest(); test.skip('not selected', () => { throw new Error('must not run'); });`, transactions: 0 },
   { name: 'skip', pass: true, body: `declareDataIntegrationTest(); test.skip('skipped', () => {}); test.todo('todo'); test.only('selected', () => {}); test('filtered', () => { throw new Error('must not run'); });`, transactions: 1 },
