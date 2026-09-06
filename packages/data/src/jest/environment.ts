@@ -59,7 +59,10 @@ export default class DataIntegrationTestEnvironment extends TestEnvironment {
       catch (error) { event.test.errors.push(error); }
       finally { this.session = undefined; }
     }
-    if (event.name === 'run_finish') await this.cleanUp();
+    if (event.name === 'run_finish') {
+      // Preserve collected test failures while also failing the suite for cleanup errors.
+      try { await this.cleanUp(); } catch (error) { state.unhandledErrors.push(error); }
+    }
   }
 
   private async cleanUp(): Promise<void> {
@@ -69,7 +72,7 @@ export default class DataIntegrationTestEnvironment extends TestEnvironment {
     try { await this.session?.finish(); } catch (error) { failures.push(error); }
     this.session = undefined;
     try { await this.bridge?.teardown(); } catch (error) { failures.push(error); }
-    if (failures.length) throw new AggregateError(failures, 'Jest data integration cleanup failed');
+    if (failures.length) throw new AggregateError(failures, `Jest data integration cleanup failed: ${failures.map(String).join('; ')}`);
   }
 
   override async teardown(): Promise<void> {
