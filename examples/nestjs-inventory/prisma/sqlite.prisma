@@ -1,0 +1,21 @@
+generator client {
+  provider = "prisma-client-js"
+  output = "../generated/sqlite"
+}
+datasource db {
+  provider = "sqlite"
+  url = env("DATABASE_URL")
+}
+model Product {
+  sku   String @id
+  stock Int
+  reservations Reservation[]
+  @@map("products")
+}
+model Reservation {
+  reference String @id
+  sku       String
+  quantity  Int
+  product Product @relation(fields: [sku], references: [sku])
+  @@map("reservations")
+}

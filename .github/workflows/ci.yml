@@ -20,4 +20,5 @@ jobs:
       - run: bun run verify
       - run: bun run pack:check:docker
       - run: bun run test:runners:minimum
-      - run: bun run test:consumer
+      - name: Verify repository examples against the packed package
+        run: bun run test:consumer
