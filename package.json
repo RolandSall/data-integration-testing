@@ -19,9 +19,10 @@
     "test:examples": "bun run --cwd examples/without-testcontainers test",
     "test:docker": "bun run --cwd examples/with-testcontainers test",
     "pack:check": "bun scripts/verify-package.ts",
-    "verify": "bun run audit && bun run build && bun run generate && bun run typecheck && bun run lint && bun run test && bun run test:examples && bun run pack:check",
+    "verify": "bun run audit && bun run build && bun run generate && bun run typecheck && bun run lint && bun run test && bun run test:runners && bun run test:examples && bun run pack:check",
     "pack:check:docker": "bun scripts/verify-package.ts --docker",
-    "audit": "bun audit"
+    "audit": "bun audit",
+    "test:runners": "bun scripts/verify-runners.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
@@ -31,7 +32,15 @@
     "typescript-eslint": "^8.42.0",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2",
-    "vitest": "~4.1.11"
+    "vitest": "~4.1.11",
+    "jest": "~30.4.2",
+    "jest-environment-node": "~30.4.1",
+    "@jest/types": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "ts-jest": "^29.4.1",
+    "typeorm": "~0.3.28",
+    "pg": "^8.16.3",
+    "@integration-testing/data": "workspace:*"
   },
   "overrides": {
     "esbuild": "0.28.1",

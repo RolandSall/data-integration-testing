@@ -1,83 +1,60 @@
-import { afterAll, aroundEach, beforeAll } from 'vitest';
+import { aroundAll, aroundEach, type RunnerTask } from 'vitest';
 import type { DataIntegrationTestConfiguration } from '../data-integration-test-configuration.js';
-import type { DataIntegrationTestContextAccessor } from '../data-integration-test-context-accessor.js';
 import { DataIntegrationTestContextManager } from '../data-integration-test-context-manager.js';
-import { consumeDataIntegrationTestClasses } from '../data-integration-test.js';
+import { consumeDeclaration } from '../internal/declarations.js';
+import { openTransactionSession } from '../internal/transaction-session.js';
 import type { VitestDataIntegrationTestSupportOptions } from './vitest-data-integration-test-support-options.js';
 
-/**
- * Installs data integration-test lifecycle hooks for every decorated class in one Vitest file.
- *
- * Call this once from a module configured through Vitest `setupFiles`. Test modules only need
- * `@DataIntegrationTest`; they do not register lifecycle hooks themselves. The returned
- * accessor may be exported from the setup module for strongly typed test access.
- *
- * Files without `@DataIntegrationTest` continue normally without creating a database client.
- * Exactly one decorated class is allowed per test file because Vitest functions are not
- * members of that marker class.
- *
- * @example
- * ```ts
- * // vitest.data-integration.setup.ts
- * export const recordDataTestContext =
- *   installVitestDataIntegrationTestSupport(configuration);
- * ```
- */
-export const installVitestDataIntegrationTestSupport = <
-  TResources,
-  TDatabase,
-  TRootClient,
-  TTransactionClient,
->(
-  configuration: DataIntegrationTestConfiguration<
-    TResources,
-    TDatabase,
-    TRootClient,
-    TTransactionClient
-  >,
+function validate(task: RunnerTask): void {
+  if (task.concurrent) throw new Error('Concurrent tests are not supported in data integration files; use parallel files');
+  if (task.type === 'suite') for (const child of task.tasks) validate(child);
+}
+
+/** Install once in setupFiles, with either shared context or the original configuration. */
+export function installVitestDataIntegrationTestSupport<R, D, C, T>(
+  configuration: DataIntegrationTestConfiguration<R, D, C, T> | DataIntegrationTestContextManager<R, D, C, T>,
   options: VitestDataIntegrationTestSupportOptions = {},
-): DataIntegrationTestContextAccessor<TResources, TDatabase, TTransactionClient> => {
-  const contextManager = new DataIntegrationTestContextManager(configuration);
+): DataIntegrationTestContextManager<R, D, C, T> {
+  const manager = configuration instanceof DataIntegrationTestContextManager
+    ? configuration : new DataIntegrationTestContextManager(configuration);
+  const timeout = options.transactionLifecycleTimeoutMs ?? 10_000;
+  if (!Number.isFinite(timeout) || timeout <= 0) throw new Error('transactionLifecycleTimeoutMs must be positive');
   let active = false;
-
-  beforeAll(async () => {
-    const testClasses = consumeDataIntegrationTestClasses();
-    if (testClasses.length === 0) {
-      return;
-    }
-    if (testClasses.length > 1) {
-      throw new Error(
-        `Expected one @DataIntegrationTest class in the test file, found ${testClasses.length}`,
-      );
-    }
-
-    const testClass = testClasses.at(0);
-    if (testClass === undefined) {
-      throw new Error('Data integration-test class discovery returned no class');
-    }
-    options.validateTestClass?.(testClass);
+  const infrastructureFailures: unknown[] = [];
+  // Vitest requires destructured fixture parameters, even when no fixtures are used.
+  // eslint-disable-next-line no-empty-pattern
+  aroundAll(async (runSuite, {}, suite) => {
+    const declaration = consumeDeclaration();
+    if (!declaration) { await runSuite(); return; }
+    validate(suite);
+    options.validateTestClass?.(declaration);
     active = true;
-    await contextManager.beforeTestClass();
-  });
-
-  aroundEach(async (runTest, context) => {
-    if (active) {
-      await contextManager.executeTestMethod(context.task.name, runTest);
-      return;
-    }
-    await runTest();
-  });
-
-  afterAll(async () => {
-    if (!active) {
-      return;
-    }
+    let failure: { error: unknown } | undefined;
     try {
-      await contextManager.afterTestClass();
-    } finally {
-      active = false;
+      await manager.beforeTestClass();
+      await runSuite();
+    } catch (error) { failure = { error }; }
+    try { await manager.afterTestClass(); } catch (error) { infrastructureFailures.push(error); }
+    active = false;
+    if (infrastructureFailures.length) {
+      throw new AggregateError([...(failure ? [failure.error] : []), ...infrastructureFailures], 'Data integration infrastructure failed');
     }
+    if (failure) throw failure.error;
   });
-
-  return contextManager;
-};
+  aroundEach(async (runTest, { task }) => {
+    if (!active) { await runTest(); return; }
+    let session;
+    try { session = await openTransactionSession(manager, task.name, timeout); }
+    catch (error) { infrastructureFailures.push(error); throw error; }
+    let failure: { error: unknown } | undefined;
+    try { await session.run(runTest); } catch (error) { failure = { error }; }
+    try { await session.finish(); }
+    catch (error) {
+      infrastructureFailures.push(error);
+      if (failure) throw new AggregateError([failure.error, error], 'Test and transaction cleanup failed');
+      throw error;
+    }
+    if (failure) throw failure.error;
+  });
+  return manager;
+}

@@ -21,7 +21,7 @@ export class DataIntegrationTestContextManager<
     DataIntegrationTestContextAccessor<TResources, TDatabase, TTransactionClient>
 {
   private readonly contexts = new AsyncTransactionContext<
-    DataIntegrationTestContext<TResources, TDatabase, TTransactionClient>
+    { context: DataIntegrationTestContext<TResources, TDatabase, TTransactionClient>; active: boolean }
   >();
   private readonly logger: DataIntegrationTestLogger;
   private resources: TResources | undefined;
@@ -82,15 +82,16 @@ export class DataIntegrationTestContextManager<
     try {
       return await this.configuration.transactions.rollbackOnly(
         activeClient,
-        async (transaction) =>
-          this.contexts.run(
-            {
-              resources: activeResources,
-              database: activeDatabase,
-              client: transaction,
-            },
-            execute,
-          ),
+        async (transaction) => {
+          const lease = { active: true, context: {
+            resources: activeResources, database: activeDatabase, client: transaction,
+          } };
+          try {
+            return await this.contexts.run(lease, execute);
+          } finally {
+            lease.active = false;
+          }
+        },
       );
     } finally {
       this.logger.info(
@@ -118,12 +119,18 @@ export class DataIntegrationTestContextManager<
     TTransactionClient
   > {
     const context = this.contexts.current();
-    if (context === undefined) {
+    if (context === undefined || !context.active) {
       throw new Error(
         'Data integration context is only available while a test method is running',
       );
     }
-    return context;
+    return context.context;
+  }
+
+  /** @internal Invalidates access before asynchronous rollback has finished. */
+  invalidateCurrentContext(): void {
+    const lease = this.contexts.current();
+    if (lease) lease.active = false;
   }
 
   private async cleanUp(): Promise<void> {
@@ -143,7 +150,7 @@ export class DataIntegrationTestContextManager<
       }
     }
     if (failures.length > 0) {
-      throw new AggregateError(failures, 'Data integration test cleanup failed');
+      throw new AggregateError(failures, `Data integration test cleanup failed: ${failures.map((failure) => failure instanceof Error ? failure.message : String(failure)).join('; ')}`);
     }
   }
 

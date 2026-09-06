@@ -1,60 +1,99 @@
 # @integration-testing/data
 
-Database integration-test annotations with a transaction that rolls back after each test.
-The core works with any transaction-capable database client through `TransactionAdapter`.
-Prisma and node-postgres adapters are included as optional subpath imports.
+Write isolated database integration tests with a consistent API across supported test runners and database clients.
 
-This is an independent repository and npm package in the `@integration-testing` scope.
-The companion [Testcontainers package](https://www.npmjs.com/package/@integration-testing/testcontainers)
-is optional infrastructure, consumed from npm only by the container example.
+Configure your database once, install the matching runner integration, and opt in with
+`@DataIntegrationTest` or `declareDataIntegrationTest()`. Each test and its per-test hooks use
+one transaction that rolls back. Infrastructure is supplied by your application: Testcontainers,
+Docker Compose, an existing disposable database, or local SQLite.
 
-## Install
+## Compatibility
+
+| Runner | PostgreSQL | SQLite |
+| --- | --- | --- |
+| Jest 30, Node environment | pg 8, Prisma 6.19, TypeORM 0.3 | Prisma 6.19 |
+| Vitest 4.1 | pg 8, Prisma 6.19, TypeORM 0.3 | Prisma 6.19 |
+
+Node.js 22.22+ is required. CI covers real database operations and independent installed consumers.
+SQL Server URL construction is retained under `/prisma/sql-server`; SQL Server transactions,
+other engines, newer client majors, and other runners are not in the verified matrix.
+
+The core has no runtime dependency on an ORM, runner, or Testcontainers. Choose only the
+entrypoints and optional peers you use. Core, database adapters, and Jest support provide
+ESM and CommonJS exports. Vitest support is ESM.
+
+## Configure once
 
 ```sh
-npm install --save-dev @integration-testing/data@beta vitest@^4.1.0
-# Choose the client your application uses:
+npm install --save-dev @integration-testing/data@beta
+# Select a runner:
+npm install --save-dev vitest@~4.1.11
+# Or:
+npm install --save-dev jest@^30.1 jest-environment-node@^30.1
+# Select an application database client, for example:
 npm install pg
-# Or install and generate your application's Prisma client.
 ```
 
-The initial package release must be published before the npm install command is available.
-Requires Node.js 22.22+ and Vitest >=4.1 <5 for automatic annotations. The lifecycle manager
-has no test runner dependency. Core, Prisma, and PostgreSQL exports support ESM and CommonJS;
-the Vitest adapter is ESM.
-
-## Two complete example projects
-
-| Project | Database client | Infrastructure | What it proves |
-| --- | --- | --- | --- |
-| [with-testcontainers](https://github.com/RolandSall/data-integration-testing/tree/main/examples/with-testcontainers) | node-postgres | Published `@integration-testing/testcontainers@0.1.0-beta.0` | Both annotations compose; PostgreSQL writes roll back |
-| [without-testcontainers](https://github.com/RolandSall/data-integration-testing/tree/main/examples/without-testcontainers) | Prisma | Temporary local SQLite file | Data annotations work without Testcontainers or Docker |
-
-Both run actual database queries. A repeated primary key in each test's fixture proves
-that `beforeEach` participates in rollback. Teardown also checks the database through
-the root client and fails if any test writes committed. Examples have separate manifests,
-configurations, setup modules, and tests; neither imports the other example.
-
-```sh
-bun install --frozen-lockfile
-bun run verify            # build, generate Prisma, typecheck, lint, unit tests, SQLite, package smoke tests
-bun run test:docker       # PostgreSQL via the published npm container package; requires Docker
-bun run pack:check:docker # isolated installed-tarball consumers, including both example projects
-```
-
-## Annotation flow
-
-Register `installVitestDataIntegrationTestSupport(configuration)` once in Vitest's
-`setupFiles`, then export its returned context accessor. Mark one class in each data test file:
+Until the first npm publication, use the prepared archive or the demo's vendored release candidate.
 
 ```ts
+// test/data-context.ts: shared by either runner
+import { Pool } from 'pg';
+import { createDataIntegrationTestContext } from '@integration-testing/data';
+import { PgTransactionAdapter } from '@integration-testing/data/pg';
+
+export const dataContext = createDataIntegrationTestContext({
+  getResources: () => process.env.TEST_DATABASE_URL!,
+  createDatabase: async (url) => url,
+  createClient: async (url) => new Pool({ connectionString: url }),
+  // This example selects an existing, migrated, disposable test database.
+  closeClient: async (pool) => { await pool.end(); },
+  dropDatabase: async () => {},
+  transactions: new PgTransactionAdapter(),
+});
+```
+
+For parallel files, run the application's real migrations once globally before workers.
+An explicitly isolated database must use those same migrations. Never run competing shared DDL from
+per-file `prepareDatabase`, even with `IF NOT EXISTS`. Only
+remove resources that configuration owns. The [standalone NestJS demo](https://github.com/RolandSall/data-integration-testing-demo)
+shows complete migration, ownership, and dependency-injection setup for all three clients.
+
+```ts
+// test/jest.setup.ts, listed in Jest setupFilesAfterEnv
+import { installJestDataIntegrationTestSupport } from '@integration-testing/data/jest';
+import { dataContext } from './data-context.js';
+installJestDataIntegrationTestSupport(dataContext);
+```
+
+```js
+// jest.config.cjs (add your normal TypeScript transform when testing .ts files)
+module.exports = {
+  testEnvironment: '@integration-testing/data/jest/environment',
+  setupFilesAfterEnv: ['<rootDir>/test/jest.setup.ts'],
+};
+```
+
+```ts
+// test/vitest.setup.ts, listed in Vitest setupFiles
+import { installVitestDataIntegrationTestSupport } from '@integration-testing/data/vitest';
+import { dataContext } from './data-context.js';
+installVitestDataIntegrationTestSupport(dataContext);
+```
+
+```ts
+// Shared test shape; use your runner's test/expect imports or configured globals.
 import { DataIntegrationTest } from '@integration-testing/data';
-import { expect, test } from 'vitest';
-import { dataContext } from './data.setup.js';
+import { dataContext } from './data-context.js';
 
 @DataIntegrationTest
-export class NotesDataIntegrationTest {}
+export class NotesIntegrationTest {}
 
-test('reads a saved note', async () => {
+// Decorator-free alternative, instead of the class above:
+// import { declareDataIntegrationTest } from '@integration-testing/data';
+// declareDataIntegrationTest();
+
+test('saves a note', async () => {
   const { client } = dataContext.getCurrentContext();
   await client.query('INSERT INTO notes (id, body) VALUES ($1, $2)', ['one', 'hello']);
   const result = await client.query('SELECT body FROM notes WHERE id = $1', ['one']);
@@ -62,61 +101,83 @@ test('reads a saved note', async () => {
 });
 ```
 
-The marker applies to the whole file, including nested suites. Undecorated files do not
-create a database. Multiple decorated classes in one file are rejected. `aroundEach`
-wraps `beforeEach`, the test body, and `afterEach` in one transaction. `beforeAll` and
-`afterAll` are outside that transaction. The accessor uses `AsyncLocalStorage` so asynchronous
-operations receive their current test's client.
+The declaration applies to the whole file, including nested suites. One declaration is allowed
+per activated file. Undeclared files do not create database resources. Install once per test-file
+sandbox, with normal runner isolation enabled; keep runtime context modules out of resetModules
+calls. Existing Vitest configuration-based installer calls remain supported.
 
-## Configure your database
+## Transaction and lifecycle contract
 
-The configuration supplies existing infrastructure, database creation or selection, client
-creation, optional schema preparation, client closure, database cleanup, and a transaction adapter.
-See the two runnable setup modules for full typed configurations.
+- Per-file resource setup runs before suite hooks; cleanup runs after them. Shared migrations
+  run separately during global setup, before workers start.
+- `beforeEach`, test body, and `afterEach` share one scoped client. Each retry opens a new transaction.
+- `beforeAll` and `afterAll` are outside per-test transactions. Context access there or after completion fails.
+- Synchronous and promise-returning tests/hooks, nested suites, parameterized tests, filtering,
+  skips, and expected failures retain runner behavior. Callback-style `done` is unsupported.
+- Activated files reject concurrent tests. Parallel files require globally prepared shared schema or separately owned state.
+- `transactionLifecycleTimeoutMs`, passed as the installer's second-argument option, defaults
+  to 10000 and bounds transaction acquisition and rollback, independently of test duration.
+- Original failures remain visible; additional rollback/release failures are retained. Expected
+  failures cannot hide infrastructure failures. Teardown is idempotent.
 
-```ts
-import { PgTransactionAdapter } from '@integration-testing/data/pg';
-import { PrismaTransactionAdapter } from '@integration-testing/data/prisma';
+Jest uses the package's Node environment and supported Circus events, with no global test-function
+replacement or private Circus imports. Vitest uses `aroundAll` and `aroundEach` so suite cleanup
+runs after user hooks regardless of hook ordering. Custom Jest environments and runner isolation
+disabled are outside the current compatibility contract.
 
-const postgresTransactions = new PgTransactionAdapter();
-// Use your application's generated Prisma types:
-const prismaTransactions = new PrismaTransactionAdapter<PrismaClient, Prisma.TransactionClient>();
+## Parallel files and shared schema
+
+Transaction isolation and schema initialization are separate concerns. `prepareDatabase` runs
+once per activated file; it is not a global migration coordinator. With a shared database, run
+migrations in the runner's native global setup, or in an orchestration step before launching
+workers, then omit per-file schema preparation. Do not drop shared schema from a file's teardown.
+
+The container example uses `prepareResources` in Testcontainers global setup and runs two files
+against the same migrated table. The standalone demo migrates one shared schema before either
+runner starts by default. Its optional `--per-file` verification uses identical application migrations
+in separately owned schemas; tests never invent their own tables. Use distinct fixture keys
+across files to avoid unnecessary lock contention; rollback does not remove all concurrency effects.
+
+For Jest, global setup is a separate execution context: transfer only serializable connection
+facts through environment variables or a resource descriptor. Do not transfer clients or transaction
+handles to workers. Testcontainers' published Jest resource mechanism can supply these facts too.
+
+## Wire the transaction into your application
+
+The context client must be supplied to the actual repository under test. In NestJS, construct a
+narrow `TestingModule` and override the database provider with that client's value. With TypeORM,
+use the scoped `EntityManager.getRepository`, not a root `DataSource` repository. The demo contains
+real examples; no application source imports this testing package and no production client is patched.
+
+Other adapters implement the existing `TransactionAdapter<RootClient, TransactionClient>` contract.
+`/prisma` exports `PrismaTransactionAdapter`; `/pg` exports `PgTransactionAdapter`; `/typeorm`
+exports `TypeOrmTransactionAdapter`. Existing lifecycle manager methods remain available to
+integrators, but manually wiring another runner does not make it a verified integration.
+
+Rollback covers awaited operations using that scoped client. Separate connections, HTTP calls,
+background workers, explicit commits, nontransactional DDL, and external services are outside
+this guarantee. Runner timeouts cannot cancel arbitrary JavaScript; never retain a client or
+launch unawaited work beyond the test. Close/invalidate the context and report cleanup errors,
+but do not infer that a timed-out promise has stopped running. Configure driver connection/query
+timeouts for your environment as well.
+
+## Verification and examples
+
+```sh
+bun install --frozen-lockfile
+bun run verify             # audit, build, typecheck, lint, unit and child-process runner checks, package checks
+bun run pack:check:docker  # original installed PostgreSQL and SQLite examples
+bun run test:consumer      # pinned standalone NestJS consumer using the current packed artifact
 ```
 
-The existing `prismaSqlServerUrlFor` connection URL helper is retained under
-`@integration-testing/data/prisma/sql-server`. It accepts connection facts from any provider.
+The [standalone demo](https://github.com/RolandSall/data-integration-testing-demo) compares the
+same inventory application and scenarios with handwritten pg fixtures and this library, under
+both runners. Its CI runs without a library checkout. It also checks deliberately failing
+processes, real connection termination, timeouts, rollback through independent connections,
+and parallel files. This demonstrates behavior and wiring; no performance advantage is claimed.
 
-Neither adapter creates infrastructure. For an existing database, return its connection details
-from `getResources` and `createDatabase`; make `dropDatabase` a no-op unless your configuration
-created state it owns. Schema preparation can invoke your migration tool.
-
-For another client, implement the existing `TransactionAdapter<RootClient, TransactionClient>`
-contract. Its `rollbackOnly(client, work)` method must acquire a transaction, call and await
-`work(transactionClient)`, roll back on success and failure, release owned resources, and
-rethrow test failures. This can adapt TypeORM, Knex, Sequelize, SQL Server clients, or another
-transaction API; these clients do not yet have bundled, tested adapters. Nontransactional
-engines require a different isolation strategy and are not covered by rollback-only semantics.
-
-With another runner, use `DataIntegrationTestContextManager` directly: await `beforeTestClass`,
-wrap each test and its per-test fixtures in `executeTestMethod`, and await `afterTestClass` in
-cleanup. Automatic annotation support is currently Vitest-only.
-
-## Transaction boundaries
-
-All operations under test must use the transaction-scoped client, including repositories.
-Separate root-client writes, HTTP requests opening other connections, explicit commits,
-autonomous transactions, external services, and some database DDL are outside this guarantee.
-Await database work before returning from a test. Concurrent PostgreSQL tests lease separate
-connections; SQLite writes may lock, so the SQLite example uses sequential tests.
-
-## Package and release
-
-One public package exposes `.`, `/vitest`, `/prisma`, `/prisma/sql-server`, and `/pg`; examples are private workspaces.
-There is no runtime dependency on Testcontainers, Prisma, pg, or Vitest in the core. Vitest and
-pg are optional peers for their respective adapters; Prisma uses a structural client contract.
-The npm archive includes only built code, declarations, README, LICENSE, and package metadata.
-Source maps and private repository history are excluded.
-
-See [release instructions](https://github.com/RolandSall/data-integration-testing/blob/main/docs/releasing.md) for npm organization setup and trusted publishing.
+The original [container example](examples/with-testcontainers) and
+[SQLite example](examples/without-testcontainers) remain smaller starting points.
+See [release instructions](docs/releasing.md) for first publication and trusted publishing.
 
 MIT license.
