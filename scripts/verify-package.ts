@@ -27,7 +27,8 @@ const packed: unknown = JSON.parse(await run('npm', ['pack', './packages/data', 
 if (!Array.isArray(packed) || packed.length !== 1) throw new Error('Expected one npm archive');
 const entry = packed[0] as { filename: string; files: { path: string }[] };
 for (const { path } of entry.files) {
-  if (!/^(dist\/|README\.md$|LICENSE$|package\.json$)/u.test(path) || path.endsWith('.map')) {
+  if (!/^(dist\/|README\.md$|LICENSE$|package\.json$)/u.test(path) || path.endsWith('.map')
+    || /(^|\/)(examples|node_modules|migrations|vendor)(\/|$)/u.test(path)) {
     throw new Error(`Unexpected published file: ${path}`);
   }
   const contents = await readFile(join(root, 'packages/data', path), 'utf8');
@@ -69,7 +70,7 @@ try {
     assert.equal(typeof require('@integration-testing/data').DataIntegrationTestContextManager, 'function');
     assert.equal(typeof require('@integration-testing/data/prisma').PrismaTransactionAdapter, 'function');
     assert.equal(typeof require('@integration-testing/data/pg').PgTransactionAdapter, 'function');
-    for (const peer of ['vitest', 'pg', '@prisma/client', '@integration-testing/testcontainers', 'typeorm', 'jest', 'jest-environment-node']) {
+    for (const peer of ['vitest', 'pg', '@prisma/client', '@integration-testing/testcontainers', 'typeorm', 'jest', 'jest-environment-node', '@nestjs/common', '@nestjs/core', '@nestjs/testing']) {
       assert.throws(() => require.resolve(peer), { code: 'MODULE_NOT_FOUND' });
     }
   `;

@@ -12,8 +12,8 @@
   ],
   "scripts": {
     "build": "bun run --cwd packages/data build",
-    "generate": "bun run --cwd examples/without-testcontainers generate",
-    "typecheck": "tsc --noEmit",
+    "generate": "bun run --cwd examples/without-testcontainers generate && bun run --cwd examples/nestjs-inventory generate",
+    "typecheck": "tsc --noEmit && bun run --cwd examples/nestjs-inventory typecheck",
     "lint": "eslint packages examples scripts --max-warnings=0",
     "test": "bun run --cwd packages/data test",
     "test:examples": "bun run --cwd examples/without-testcontainers test",
@@ -24,7 +24,8 @@
     "audit": "bun audit",
     "test:runners": "bun scripts/verify-runners.ts",
     "test:runners:minimum": "bun scripts/verify-runner-minimum.ts",
-    "test:consumer": "bun scripts/verify-demo.ts"
+    "test:consumer": "bun scripts/verify-demo.ts",
+    "test:consumer:sqlite": "bun scripts/verify-demo.ts --sqlite"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",

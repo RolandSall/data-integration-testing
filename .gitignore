@@ -7,3 +7,4 @@ coverage/
 *.db-journal
 .idea/
 examples/without-testcontainers/generated/
+examples/nestjs-inventory/generated/

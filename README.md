@@ -35,20 +35,23 @@ Infrastructure lifecycle and transaction isolation remain separate. You can use 
 libraries together, use this library with an existing database, or use Testcontainers Integration
 without this library for tests that need different data-cleanup behavior.
 
-**Try the complete [NestJS inventory demo](https://github.com/RolandSall/data-integration-testing-demo)**
+**Try the complete [NestJS inventory demo](https://github.com/RolandSall/data-integration-testing/tree/codex/cross-runner-data-tests/examples/nestjs-inventory)**
 to see the pairing with Prisma, pg, and TypeORM, under both Jest and Vitest:
 
 ```sh
-git clone https://github.com/RolandSall/data-integration-testing-demo.git
-cd data-integration-testing-demo
+git clone https://github.com/RolandSall/data-integration-testing.git
+cd data-integration-testing
+git checkout codex/cross-runner-data-tests
 bun install --frozen-lockfile
+bun run build
 bun run generate
 bun run typecheck
-bun run test
+bun run --cwd examples/nestjs-inventory test
 ```
 
-The demo installs the published Testcontainers Integration package and a packed Data Integration
-candidate. It does not resolve library source through workspace links or TypeScript aliases.
+The example uses the published Testcontainers Integration package and the local compiled Data
+Integration package. `bun run test:consumer` also copies it outside the workspace and installs the
+packed data library to verify real consumer behavior without workspace links or source aliases.
 Its default run applies application migrations before workers start and verifies rollback through
 independent root connections. Docker is required for its PostgreSQL container runs.
 
@@ -83,12 +86,18 @@ SQL Server URL construction remains available through `/prisma/sql-server`; that
 not establish SQL Server transaction support.
 
 **Publication status:** Data Integration's first candidate is `0.1.0-beta.0`; it is not yet
-published to npm. To use it now, copy the archive from the demo's
-[`vendor` directory](https://github.com/RolandSall/data-integration-testing-demo/tree/main/vendor)
-into your application's `vendor` directory and install that exact file:
+published to npm. To use it in another application now, build and pack this repository:
 
 ```sh
-npm install --save-dev ./vendor/integration-testing-data-0.1.0-beta.0-4a1805f.tgz
+# From this repository's root:
+bun run build
+npm pack ./packages/data --pack-destination .
+```
+
+Copy the resulting archive to your application's `vendor` directory and install it:
+
+```sh
+npm install --save-dev ./vendor/integration-testing-data-0.1.0-beta.0.tgz
 ```
 
 After publication, the installation will be `npm install --save-dev @integration-testing/data@beta`.
@@ -124,7 +133,7 @@ your application's `package.json` for this walkthrough; Jest configuration files
 The application must already have a real migration command named `migrate` in `package.json`.
 That command must read `DATABASE_URL`. Use the same migration files and migration tool as your
 application deployment, such as your Prisma migration command or TypeORM migration command.
-The [demo's migration entrypoint](https://github.com/RolandSall/data-integration-testing-demo/blob/main/src/migrate.ts)
+The [demo's migration entrypoint](https://github.com/RolandSall/data-integration-testing/blob/codex/cross-runner-data-tests/examples/nestjs-inventory/src/migrate.ts)
 is a complete example with migration history. Do not create a different schema inside each test.
 
 The test below assumes those migrations create the inventory application's `products` table,
@@ -528,7 +537,7 @@ Use the plain runner installers, without the native Testcontainers global setup 
 injection variants. The data library closes its own pool; it does not drop an externally supplied
 database. Testcontainers Integration is optional for this setup and need not be installed.
 
-To exercise this mode in the standalone demo:
+To exercise this mode, run from `examples/nestjs-inventory`:
 
 ```sh
 DATABASE_URL='postgresql://test_user:test_password@localhost:5432/inventory_test' bun run test:external
@@ -626,7 +635,7 @@ export const dataContext = createDataIntegrationTestContext({
 ```
 
 `ProductEntity` and `ReservationEntity` are the application's own entity definitions; the demo
-has complete [EntitySchema examples](https://github.com/RolandSall/data-integration-testing-demo/blob/main/src/typeorm-repository.ts).
+has complete [EntitySchema examples](https://github.com/RolandSall/data-integration-testing/blob/codex/cross-runner-data-tests/examples/nestjs-inventory/src/typeorm-repository.ts).
 Run your application migrations globally; do not enable schema synchronization or per-file migration execution.
 
 Inside a test or fixture, get repositories from the scoped manager:
@@ -667,8 +676,8 @@ For a ready-to-run setup that creates a temporary SQLite file, migrates it globa
 runners, and deletes its owned file afterward:
 
 ```sh
-# From the standalone demo, no Docker required:
-bun run verify:sqlite
+# From the repository root, no Docker required:
+bun run test:consumer:sqlite
 ```
 
 The demo uses its own versioned migration entrypoint for SQLite. The Prisma CLI commands above
@@ -759,7 +768,7 @@ Use distinct fixture keys where possible: rollback does not eliminate lock conte
 sequence advancement, or other database concurrency behavior. Tests requiring commits need a
 separate isolation strategy.
 
-The demo's optional `bun run test:per-file` command checks resource ownership using a schema per
+The example's optional `bun run test:per-file` command (from `examples/nestjs-inventory`) checks resource ownership using a schema per
 file. Each schema runs the **same application migrations**. It is additional coverage, not the
 default setup and not permission for tests to invent tables that differ from production.
 
@@ -835,11 +844,17 @@ global `test` or `describe` or import private Circus modules. Vitest uses `aroun
 
 ## Examples, comparison, and verification
 
+All examples live in this repository under `examples/`. They are **not shipped to npm**. Only
+`packages/data` is published, with an allowlist of compiled outputs, declarations, README, and
+license. Example applications, migrations, tests, and their dependencies remain repository-only.
+The consumer check copies the NestJS example outside the workspace and installs a freshly packed
+archive, preserving independent consumer verification without a separate repository.
+
 | Example | What it demonstrates |
 | --- | --- |
-| [Standalone NestJS inventory demo](https://github.com/RolandSall/data-integration-testing-demo) | Published Testcontainers Integration, installed data artifact, all supported clients/runners, application migrations, independent rollback checks |
-| [Demo application provider wiring](https://github.com/RolandSall/data-integration-testing-demo/blob/main/test/application.ts) | Explicit transaction-client injection without testing imports in application source |
-| [Handwritten pg baseline](https://github.com/RolandSall/data-integration-testing-demo/blob/main/test/baseline.test.ts) | The same application scenarios with ordinary Jest/Vitest hooks |
+| [NestJS inventory demo](https://github.com/RolandSall/data-integration-testing/tree/codex/cross-runner-data-tests/examples/nestjs-inventory) | Published Testcontainers Integration, installed data artifact, all supported clients/runners, application migrations, independent rollback checks |
+| [Demo application provider wiring](https://github.com/RolandSall/data-integration-testing/blob/codex/cross-runner-data-tests/examples/nestjs-inventory/test/application.ts) | Explicit transaction-client injection without testing imports in application source |
+| [Handwritten pg baseline](https://github.com/RolandSall/data-integration-testing/blob/codex/cross-runner-data-tests/examples/nestjs-inventory/test/baseline.test.ts) | The same application scenarios with ordinary Jest/Vitest hooks |
 | [Small pg/container example](https://github.com/RolandSall/data-integration-testing/tree/4a1805f20f60ebc8fd08d6156a682d3ca400caf0/examples/with-testcontainers) | Combined annotations and native Vitest global setup |
 | [Small Prisma/SQLite example](https://github.com/RolandSall/data-integration-testing/tree/4a1805f20f60ebc8fd08d6156a682d3ca400caf0/examples/without-testcontainers) | Minimal adapter wiring; its tiny schema fixture is not the production-migration walkthrough |
 
@@ -854,7 +869,7 @@ bun install --frozen-lockfile
 bun run verify                # Audit, build, types, lint, unit, runner and package checks
 bun run pack:check:docker      # Installed PostgreSQL and SQLite examples
 bun run test:runners:minimum   # Minimum supported Jest integration
-bun run test:consumer          # Current packed output in a pinned independent consumer checkout
+bun run test:consumer          # Current packed output in an isolated copy of the repository example
 ```
 
 The behavioral checks cover nested fixtures, retries, skips, declaration isolation, unsupported
