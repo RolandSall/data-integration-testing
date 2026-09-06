@@ -64,6 +64,7 @@ const cases = [
   { name: 'cleanup-failure', pass: false, body: `declareDataIntegrationTest(); test('body', () => {});`, error: 'close failure', transactions: 1 },
   { name: 'test-timeout', pass: false, body: `declareDataIntegrationTest(); test('timeout', async () => { await new Promise(() => {}); }, 40);`, error: 'timeout|timed out|Exceeded timeout', transactions: 1 },
   { name: 'retry', pass: true, body: `declareDataIntegrationTest(); RETRY_SETUP let attempts = 0; test('retry', RETRY_OPTIONS () => { assert.equal(++attempts, 2); assert.deepEqual(dataContext.getCurrentContext().client.writes, []); });`, transactions: 2 },
+  { name: 'skipped-file', pass: true, body: `declareDataIntegrationTest(); test.skip('not selected', () => { throw new Error('must not run'); });`, transactions: 0 },
   { name: 'skip', pass: true, body: `declareDataIntegrationTest(); test.skip('skipped', () => {}); test.todo('todo'); test.only('selected', () => {}); test('filtered', () => { throw new Error('must not run'); });`, transactions: 1 },
 ];
 
