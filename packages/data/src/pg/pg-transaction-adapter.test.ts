@@ -64,3 +64,12 @@ test('given successful work, when rollback fails, then the rollback failure fail
   await expect(adapter.rollbackOnly(pool, async () => 42)).rejects.toBe(failure);
   expect(release).toHaveBeenCalledExactlyOnceWith(true);
 });
+
+test('given failed work, when releasing the connection also fails, then neither failure is hidden', async () => {
+  const { pool, release, adapter } = fixture();
+  const workFailure = new Error('work failed');
+  const releaseFailure = new Error('release failed');
+  release.mockImplementation(() => { throw releaseFailure; });
+  await expect(adapter.rollbackOnly(pool, async () => { throw workFailure; }))
+    .rejects.toMatchObject({ errors: [workFailure, releaseFailure] });
+});

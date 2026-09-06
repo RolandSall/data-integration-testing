@@ -58,3 +58,17 @@ test(
     expect(client.rolledBack).toBe(true);
   },
 );
+
+test('given failed work, when Prisma reports a different cleanup failure, then both failures remain visible', async () => {
+  const workFailure = new Error('work failed');
+  const cleanupFailure = new Error('cleanup failed');
+  const client = {
+    async $transaction<T>(work: (transaction: FakeTransaction) => Promise<T>): Promise<T> {
+      try { return await work({ writes: [] }); }
+      catch { throw cleanupFailure; }
+    },
+  };
+  const adapter = new PrismaTransactionAdapter<typeof client, FakeTransaction>();
+  await expect(adapter.rollbackOnly(client, async () => { throw workFailure; }))
+    .rejects.toMatchObject({ errors: [workFailure, cleanupFailure] });
+});
