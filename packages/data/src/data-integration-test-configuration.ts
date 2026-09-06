@@ -14,7 +14,7 @@ export interface DataIntegrationTestConfiguration<
   createDatabase(resources: TResources): Promise<TDatabase>;
   /** Creates and connects the root database client shared by this test class. */
   createClient(database: TDatabase): Promise<TRootClient>;
-  /** Optionally creates or validates application schema before test methods execute. */
+  /** Runs once per activated file. Run shared application migrations globally before workers, not here. */
   prepareDatabase?(client: TRootClient, database: TDatabase): Promise<void>;
   /** Disconnects the class-level root client. */
   closeClient(client: TRootClient): Promise<void>;

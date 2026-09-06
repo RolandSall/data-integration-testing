@@ -5,7 +5,7 @@ import { PgTransactionAdapter } from './pg-transaction-adapter.js';
 function fixture() {
   const query = vi.fn<(sql: string) => Promise<{ rows: never[] }>>().mockResolvedValue({ rows: [] });
   const release = vi.fn();
-  const client = { query, release } as unknown as PoolClient;
+  const client = { query, release, on: vi.fn(), removeListener: vi.fn() } as unknown as PoolClient;
   const pool = { connect: async () => client } as unknown as Pool;
   return { pool, client, query, release, adapter: new PgTransactionAdapter() };
 }

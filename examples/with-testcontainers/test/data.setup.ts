@@ -8,9 +8,6 @@ export const dataContext = installVitestDataIntegrationTestSupport({
   getResources: () => injectedContainerResources().get(Container.PostgreSql),
   createDatabase: async (resource) => resource.connectionUri,
   createClient: async (connectionString) => new Pool({ connectionString }),
-  prepareDatabase: async (pool) => {
-    await pool.query('CREATE TABLE notes (id text PRIMARY KEY, body text NOT NULL)');
-  },
   closeClient: async (pool) => {
     // Assert from the root connection that test writes never committed.
     try {

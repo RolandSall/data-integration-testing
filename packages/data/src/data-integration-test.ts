@@ -2,14 +2,14 @@
 export type DataIntegrationTestClass = abstract new (...arguments_: never[]) => unknown;
 
 const dataIntegrationTests = new WeakSet<DataIntegrationTestClass>();
-const pendingDataIntegrationTests = new Set<DataIntegrationTestClass>();
+const pendingDataIntegrationTests: DataIntegrationTestClass[] = [];
 
 /** Marks a class as a data integration-test suite. */
 export const DataIntegrationTest = <TClass extends DataIntegrationTestClass>(
   target: TClass,
 ): TClass => {
   dataIntegrationTests.add(target);
-  pendingDataIntegrationTests.add(target);
+  pendingDataIntegrationTests.push(target);
   return target;
 };
 
@@ -25,6 +25,11 @@ export const isDataIntegrationTest = (target: DataIntegrationTestClass): boolean
  */
 export const consumeDataIntegrationTestClasses = (): readonly DataIntegrationTestClass[] => {
   const testClasses = [...pendingDataIntegrationTests];
-  pendingDataIntegrationTests.clear();
+  pendingDataIntegrationTests.length = 0;
   return testClasses;
+};
+
+/** Activates transactional testing for this file without decorator syntax. */
+export const declareDataIntegrationTest = (): void => {
+  DataIntegrationTest(class DeclaredDataIntegrationTest {});
 };

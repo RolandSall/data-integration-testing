@@ -45,16 +45,21 @@ export class PrismaTransactionAdapter<
   ): Promise<T> {
     const outcome: { completed?: { readonly value: T } } = {};
 
+    let workFailure: { error: unknown } | undefined;
     try {
       await client.$transaction(
         async (transaction) => {
-          outcome.completed = { value: await work(transaction) };
+          try { outcome.completed = { value: await work(transaction) }; }
+          catch (error) { workFailure = { error }; throw error; }
           throw ROLLBACK_SIGNAL;
         },
         this.options,
       );
     } catch (error) {
       if (error !== ROLLBACK_SIGNAL) {
+        if (workFailure && error !== workFailure.error) {
+          throw new AggregateError([workFailure.error, error], 'Prisma test and transaction cleanup failed');
+        }
         throw error;
       }
     }
