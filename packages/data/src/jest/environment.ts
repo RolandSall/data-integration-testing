@@ -56,7 +56,11 @@ export default class DataIntegrationTestEnvironment extends TestEnvironment {
     if (event.name === 'test_done') {
       // Append infrastructure errors after Circus has interpreted test.failing.
       try { await this.session?.finish(); }
-      catch (error) { event.test.errors.push(error); }
+      catch (error) {
+        event.test.errors.push(error);
+        // Retry resets test.errors; infrastructure failures must still fail the file.
+        state.unhandledErrors.push(error);
+      }
       finally { this.session = undefined; }
     }
     if (event.name === 'run_finish') {
