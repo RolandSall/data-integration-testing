@@ -1,0 +1,105 @@
+{
+  "name": "@integration-testing/data",
+  "version": "0.1.0-beta.0",
+  "description": "Database integration test annotations and rollback isolation for any transaction-capable client",
+  "author": "Roland Salloum",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RolandSall/data-integration-testing.git",
+    "directory": "packages/data"
+  },
+  "homepage": "https://github.com/RolandSall/data-integration-testing#readme",
+  "bugs": {
+    "url": "https://github.com/RolandSall/data-integration-testing/issues"
+  },
+  "keywords": [
+    "integration-testing",
+    "database",
+    "vitest",
+    "prisma",
+    "postgresql",
+    "testing",
+    "decorators"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/types/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/types/esm/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/types/cjs/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./vitest": {
+      "import": {
+        "types": "./dist/types/esm/vitest/index.d.ts",
+        "default": "./dist/vitest/index.js"
+      }
+    },
+    "./prisma": {
+      "import": {
+        "types": "./dist/types/esm/prisma/index.d.ts",
+        "default": "./dist/prisma/index.js"
+      },
+      "require": {
+        "types": "./dist/types/cjs/prisma/index.d.ts",
+        "default": "./dist/prisma/index.cjs"
+      }
+    },
+    "./pg": {
+      "import": {
+        "types": "./dist/types/esm/pg/index.d.ts",
+        "default": "./dist/pg/index.js"
+      },
+      "require": {
+        "types": "./dist/types/cjs/pg/index.d.ts",
+        "default": "./dist/pg/index.cjs"
+      }
+    },
+    "./prisma/sql-server": {
+      "import": {
+        "types": "./dist/types/esm/prisma/sql-server/index.d.ts",
+        "default": "./dist/prisma/sql-server/index.js"
+      },
+      "require": {
+        "types": "./dist/types/cjs/prisma/sql-server/index.d.ts",
+        "default": "./dist/prisma/sql-server/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts src/vitest/index.ts src/prisma/index.ts src/prisma/sql-server/index.ts src/pg/index.ts --format esm,cjs --clean --splitting && tsc -p tsconfig.build.json && bun ../../scripts/prepare-dual-types.ts",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "vitest": ">=4.1.0 <5",
+    "pg": ">=8.15 <9"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    }
+  }
+}

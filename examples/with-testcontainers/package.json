@@ -1,0 +1,15 @@
+{
+  "name": "example-with-testcontainers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@integration-testing/data": "workspace:*",
+    "vitest": "~4.1.11",
+    "@integration-testing/testcontainers": "0.1.0-beta.0",
+    "pg": "^8.16.3"
+  }
+}

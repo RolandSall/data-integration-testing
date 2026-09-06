@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+.artifacts/
+.env
+*.db
+*.db-journal
+.idea/
+examples/without-testcontainers/generated/
