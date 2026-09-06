@@ -5,7 +5,11 @@ The npm package uses the same organization scope, `@integration-testing`.
 
 ## First release
 
-1. Run `bun run verify` and `bun run pack:check:docker` with Docker available.
+1. Run `bun run verify`, `bun run pack:check:docker`, `bun run test:runners:minimum`,
+   and `bun run test:consumer` with Docker available. Both library and standalone consumer CI must pass.
+   Recheck `npm view @integration-testing/data versions --json` before choosing the candidate version.
+   The registry returned package-not-found on September 6, 2026, so the prepared first candidate is
+   `0.1.0-beta.0`; this is not evidence of npm publication.
 2. Authenticate to npm as a member with publish permission in `@integration-testing`.
 3. From this repository, run `npm publish ./packages/data --access public --tag beta`.
    This creates `@integration-testing/data@0.1.0-beta.0`. npm may require account 2FA.
@@ -13,6 +17,8 @@ The npm package uses the same organization scope, `@integration-testing`.
    owner `RolandSall`, repository `data-integration-testing`, workflow `release.yml`,
    environment `npm`, and allow the publish action. Create that GitHub environment before running the workflow.
 5. Verify `npm view @integration-testing/data@beta version repository --json`.
+6. Replace the standalone demo's vendored archive dependency with the exact published version,
+   regenerate its lockfile, and rerun its CI. Do not use a workspace link or TypeScript path alias.
 
 The first publication needs an authenticated publisher; the new package cannot inherit
 trusted-publisher settings from the existing Testcontainers package. Never commit npm tokens.

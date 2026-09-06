@@ -14,7 +14,7 @@ bun run test:docker
 Docker must be running. `@RequiredContainer(Container.PostgreSql)` is discovered by the
 container package's global setup. `@DataIntegrationTest` creates a pg pool, then
 leases a connection for each test transaction. Every fixture and test write is rolled back.
-Global setup creates the shared schema once before both test files run. Per-file setup performs
+Global setup applies `migrations/001-notes.sql` once before both test files run. Per-file setup performs
 no DDL, so parallel workers do not race to create the same table.
 The container package stops the database after the run. No ports or credentials are hardcoded.
 

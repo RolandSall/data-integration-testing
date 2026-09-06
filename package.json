@@ -22,7 +22,9 @@
     "verify": "bun run audit && bun run build && bun run generate && bun run typecheck && bun run lint && bun run test && bun run test:runners && bun run test:examples && bun run pack:check",
     "pack:check:docker": "bun scripts/verify-package.ts --docker",
     "audit": "bun audit",
-    "test:runners": "bun scripts/verify-runners.ts"
+    "test:runners": "bun scripts/verify-runners.ts",
+    "test:runners:minimum": "bun scripts/verify-runner-minimum.ts",
+    "test:consumer": "bun scripts/verify-demo.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
