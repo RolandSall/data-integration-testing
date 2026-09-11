@@ -1,7 +1,7 @@
 {
   "name": "@integration-testing/data",
-  "version": "0.1.0-beta.0",
-  "description": "Database integration test annotations and rollback isolation for any transaction-capable client",
+  "version": "0.1.0",
+  "description": "Transactional database integration tests for Jest and Vitest with Prisma, pg, and TypeORM",
   "author": "Roland Salloum",
   "license": "MIT",
   "type": "module",
@@ -28,7 +28,11 @@
     "prisma",
     "postgresql",
     "testing",
-    "decorators"
+    "decorators",
+    "jest",
+    "typeorm",
+    "transactions",
+    "sqlite"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

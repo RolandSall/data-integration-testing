@@ -22,5 +22,5 @@ URL in the setup configuration. Use your own migrations and omit database deleti
 your tests do not own the database. All repository operations must use the context client.
 
 To copy this project outside the workspace after publication, replace `workspace:*` with
-`0.1.0-beta.0`, then run `bun install`, `bun run generate`, and `bun run test`.
+`0.1.0`, then run `bun install`, `bun run generate`, and `bun run test`.
 The TypeScript configuration is self-contained.
