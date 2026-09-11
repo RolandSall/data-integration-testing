@@ -91,8 +91,13 @@ above. Other engines, newer client majors, and other runners are outside that ve
 SQL Server URL construction remains available through `/prisma/sql-server`; that helper does
 not establish SQL Server transaction support.
 
-**Publication status:** Data Integration's first candidate is `0.1.0-beta.0`; it is not yet
-published to npm. To use it in another application now, build and pack this repository:
+**Release target: `0.1.0`.** Once this version is available on npm, install it with:
+
+```sh
+npm install --save-dev @integration-testing/data@0.1.0
+```
+
+Before publication, use a local package archive instead. Build and pack this repository:
 
 ```sh
 # From a checkout of this repository (Bun 1.3.5):
@@ -104,10 +109,9 @@ npm pack ./packages/data --pack-destination .
 Copy the resulting archive to your application's `vendor` directory and install it:
 
 ```sh
-npm install --save-dev ./vendor/integration-testing-data-0.1.0-beta.0.tgz
+npm install --save-dev ./vendor/integration-testing-data-0.1.0.tgz
 ```
 
-After publication, the installation will be `npm install --save-dev @integration-testing/data@beta`.
 For the pg quick start, install the driver and TypeScript tooling:
 
 ```sh
@@ -1101,7 +1105,7 @@ child processes. Consumer checks exercise real PostgreSQL/SQLite, connection los
 parallel files, external database URLs, and root-connection rollback verification. Package checks
 cover optional dependency independence and ESM/CommonJS runtime and declaration resolution.
 
-See [release instructions](https://github.com/RolandSall/data-integration-testing/blob/4a1805f20f60ebc8fd08d6156a682d3ca400caf0/docs/releasing.md)
+See [release instructions](https://github.com/RolandSall/data-integration-testing/blob/main/docs/releasing.md)
 for publication and trusted publishing. Read the
 [Testcontainers Integration documentation](https://github.com/RolandSall/testcontainers-integration#readme)
 for its additional infrastructure capabilities; those do not expand this package's tested transaction matrix.

@@ -6,7 +6,7 @@ on:
         description: npm distribution tag
         type: choice
         options: [beta, latest]
-        default: beta
+        default: latest
 permissions:
   contents: read
   id-token: write
@@ -15,6 +15,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: npm
     steps:
