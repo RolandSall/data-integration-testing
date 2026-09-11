@@ -1,5 +1,5 @@
 {
-  "name": "@integration-testing/data",
+  "name": "@integration-testing/data-isolation",
   "version": "0.1.0",
   "description": "Transactional database integration tests for Jest and Vitest with Prisma, pg, and TypeORM",
   "author": "Roland Salloum",

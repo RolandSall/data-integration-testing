@@ -1,4 +1,4 @@
-import { installVitestDataIntegrationTestSupport as install } from '@integration-testing/data/vitest';
+import { installVitestDataIntegrationTestSupport as install } from '@integration-testing/data-isolation/vitest';
 import { clientKind, pgContext, prismaContext, sqliteContext, typeormContext } from './context.js';
 switch (clientKind) {
   case 'prisma': install(prismaContext); break;

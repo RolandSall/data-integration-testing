@@ -1,4 +1,4 @@
-import { installJestDataIntegrationTestSupport as install } from '@integration-testing/data/jest';
+import { installJestDataIntegrationTestSupport as install } from '@integration-testing/data-isolation/jest';
 import { clientKind, pgContext, prismaContext, sqliteContext, typeormContext } from './context.js';
 switch (clientKind) {
   case 'prisma': install(prismaContext); break;

@@ -3,10 +3,10 @@ import { migrateSqlite } from '../src/migrate.js';
 import { DataSource } from 'typeorm';
 import { PrismaClient as PgPrisma, type Prisma } from '../generated/postgresql/index.js';
 import { PrismaClient as SqlitePrisma, type Prisma as SqlitePrismaTypes } from '../generated/sqlite/index.js';
-import { createDataIntegrationTestContext } from '@integration-testing/data';
-import { PgTransactionAdapter } from '@integration-testing/data/pg';
-import { PrismaTransactionAdapter } from '@integration-testing/data/prisma';
-import { TypeOrmTransactionAdapter } from '@integration-testing/data/typeorm';
+import { createDataIntegrationTestContext } from '@integration-testing/data-isolation';
+import { PgTransactionAdapter } from '@integration-testing/data-isolation/pg';
+import { PrismaTransactionAdapter } from '@integration-testing/data-isolation/prisma';
+import { TypeOrmTransactionAdapter } from '@integration-testing/data-isolation/typeorm';
 import { ProductEntity, ReservationEntity } from '../src/typeorm-repository.js';
 import { createDatabase, dropDatabase, poolFor, migratePostgres, assertPostgresEmpty } from './database.js';
 

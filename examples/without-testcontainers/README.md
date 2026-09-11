@@ -1,6 +1,6 @@
 # Data annotations without Testcontainers
 
-This project uses `@integration-testing/data` with a real generated Prisma client and a
+This project uses `@integration-testing/data-isolation` with a real generated Prisma client and a
 SQLite database in a fresh temporary directory. It has no Testcontainers dependency and
 needs no Docker or database server.
 

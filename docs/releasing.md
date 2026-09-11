@@ -1,4 +1,4 @@
-# Publishing @integration-testing/data
+# Publishing @integration-testing/data-isolation
 
 The first release target is **0.1.0**, published with npm's **latest** tag. Preparing the version,
 passing CI, and opening a release PR do not publish the package.
@@ -42,7 +42,7 @@ publishing. The package does not inherit authentication or trusted-publisher set
 4. When ready to publish, run:
 
    ```sh
-   npm publish ./.artifacts/integration-testing-data-0.1.0.tgz --access public --tag latest
+   npm publish ./.artifacts/integration-testing-data-isolation-0.1.0.tgz --access public --tag latest
    ```
 
    This publishes the archive produced by the package checks. The publication is permanent for
@@ -50,14 +50,20 @@ publishing. The package does not inherit authentication or trusted-publisher set
 5. Check the registry rather than relying only on the command's exit status:
 
    ```sh
-   npm view @integration-testing/data@0.1.0 version dist.integrity repository --json
-   npm view @integration-testing/data dist-tags --json
+   npm view @integration-testing/data-isolation@0.1.0 version dist.integrity repository --json
+   npm view @integration-testing/data-isolation dist-tags --json
    ```
 
-6. In a clean directory outside this repository, install `@integration-testing/data@0.1.0` from
-   npm and run the documented setup against a migrated test database. Confirm that `latest`
-   resolves to `0.1.0` before announcing availability. A locally packed consumer does not prove
-   registry installation.
+6. Run the registry consumer check from the repository root:
+
+   ```sh
+   bun run test:consumer:published
+   ```
+
+   It copies the application outside the workspace, installs the manifest's exact package version
+   from npm (without a local tarball or source alias), and runs the same database matrix. Confirm
+   that `latest` resolves to `0.1.0` before announcing availability. A locally packed consumer
+   does not prove registry installation.
 
 ## Configure trusted publishing for subsequent releases
 
