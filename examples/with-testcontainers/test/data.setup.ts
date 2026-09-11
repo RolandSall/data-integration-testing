@@ -1,11 +1,13 @@
 import { Pool } from 'pg';
-import { Container } from '@integration-testing/testcontainers';
-import { injectedContainerResources } from '@integration-testing/testcontainers/vitest';
+import { Container, ContainerResources } from '@integration-testing/testcontainers';
+import { inject } from 'vitest';
+import { CONTAINER_RESOURCES_CONTEXT_KEY } from '@integration-testing/testcontainers/vitest';
 import { PgTransactionAdapter } from '@integration-testing/data/pg';
 import { installVitestDataIntegrationTestSupport } from '@integration-testing/data/vitest';
 
 export const dataContext = installVitestDataIntegrationTestSupport({
-  getResources: () => injectedContainerResources().get(Container.PostgreSql),
+  getResources: () => ContainerResources.fromSerializable(inject(CONTAINER_RESOURCES_CONTEXT_KEY))
+    .getNamed('database', Container.PostgreSql),
   createDatabase: async (resource) => resource.connectionUri,
   createClient: async (connectionString) => new Pool({ connectionString }),
   closeClient: async (pool) => {

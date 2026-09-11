@@ -3,7 +3,7 @@ import { Container, RequiredContainer } from '@integration-testing/testcontainer
 import { expect, test } from 'vitest';
 import { dataContext } from './data.setup.js';
 
-@RequiredContainer(Container.PostgreSql)
+@RequiredContainer({ database: { kind: Container.PostgreSql, isolation: 'shared' } })
 @DataIntegrationTest
 export class SecondNotesIntegrationTest {}
 

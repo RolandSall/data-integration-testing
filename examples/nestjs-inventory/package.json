@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "@integration-testing/data": "workspace:*",
-    "@integration-testing/testcontainers": "0.1.0-beta.0",
+    "@integration-testing/testcontainers": "0.1.0",
     "@nestjs/testing": "^11.1.0",
     "@types/node": "^22.18.0",
     "@types/pg": "^8.15.5",
