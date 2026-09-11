@@ -79,7 +79,7 @@ After the package exists, add a GitHub Actions trusted publisher in its npm sett
 
 The repository's `npm` GitHub environment exists. Its existence alone does not prove that the
 npm trusted publisher has been configured. The workflow uses GitHub-hosted runners, Node 22.22.0,
-npm 11.5.1, and `id-token: write`, matching the
+npm 11.19.1, and `id-token: write`, matching the
 [npm trusted-publishing requirements](https://docs.npmjs.com/trusted-publishers/).
 
 Update the version and changelog, pass the release gates, and merge to `main`. Dispatch the
