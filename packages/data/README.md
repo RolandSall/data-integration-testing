@@ -38,14 +38,14 @@ This is the test-file API after setup, using pg and runner globals. The quick st
 the context and runner configuration. Prefer annotations? `@DataIntegrationTest` on one marker
 class has the same effect as `declareDataIntegrationTest()`; use one form per file.
 
-## Recommended pairing: Testcontainers Integration + Data Integration
+## Recommended pairing: Testcontainers Integration + Data Isolation
 
 **Real infrastructure, isolated test data: two tools that work hand in hand.**
 
 Use **[@integration-testing/testcontainers](https://www.npmjs.com/package/@integration-testing/testcontainers)**
 to start a disposable PostgreSQL instance and provide its connection URL. Apply your application's
 real migrations once, then use **@integration-testing/data-isolation** to roll back each test's writes.
-Testcontainers Integration stops the infrastructure after the run; Data Integration manages the
+Testcontainers Integration stops the infrastructure after the run; Data Isolation manages the
 test transactions and its configured clients.
 
 The [Testcontainers Integration repository](https://github.com/RolandSall/testcontainers-integration)
@@ -328,7 +328,7 @@ that client, for example through constructor injection; see [NestJS wiring](#inj
 
 ## Configure Jest once
 
-Jest needs **both** the installer and the Data Integration Node environment. The installer
+Jest needs **both** the installer and the Data Isolation Node environment. The installer
 registers the context inside Jest's test sandbox; the environment connects it to test execution.
 The annotation by itself cannot activate this behavior. Keep quick start steps 1 and 3, and use
 this section in place of its Vitest setup. The root TypeScript options are shown in the quick
@@ -597,7 +597,7 @@ module.exports = require('./containers.lifecycle.cjs').setup;
 module.exports = require('./containers.lifecycle.cjs').teardown;
 ```
 
-Add these entries to `jest.integration.config.cjs`, retaining the Data Integration test environment:
+Add these entries to `jest.integration.config.cjs`, retaining the Data Isolation test environment:
 
 ```js
 globalSetup: '<rootDir>/test/containers.global-setup.cjs',
@@ -884,18 +884,18 @@ default setup and not permission for tests to invent tables that differ from pro
 
 The examples pin **`@integration-testing/testcontainers@0.1.0`**. The connection URL is the
 boundary between the libraries: Testcontainers Integration supplies a real database endpoint;
-Data Integration creates the configured driver and controls transactions through its adapter.
-Neither library needs to import the other's source, and Data Integration does not require
+Data Isolation creates the configured driver and controls transactions through its adapter.
+Neither library needs to import the other's source, and Data Isolation does not require
 Testcontainers as a dependency.
 
-| Setup with Testcontainers Integration 0.1.0 | Data Integration compatibility |
+| Setup with Testcontainers Integration 0.1.0 | Data Isolation compatibility |
 | --- | --- |
 | Shared `ContainerRuntime` launcher | Verified with PostgreSQL + pg, Prisma 6.19, and TypeORM 0.3 under Jest and Vitest, using an installed data package archive |
 | Shared native `createVitestContainerGlobalSetup` | Verified with pg, global migrations, and transaction-scoped tests |
 | Shared native `createJestContainerGlobalSetup` | Verified with pg while retaining `@integration-testing/data-isolation/jest/environment` |
 | Named `@RequiredContainer` with `isolation: 'shared'` and manual global setup | Demonstrated by the small Vitest example; both files select the same named database |
 | Generated annotation/project file setup, including `isolation: 'dedicated'` | Not a supported drop-in pairing in this release; file lifecycle coordination is still needed |
-| RabbitMQ, MongoDB, or SQL Server containers | Available infrastructure in Testcontainers Integration; this does not add transactional adapter coverage to Data Integration |
+| RabbitMQ, MongoDB, or SQL Server containers | Available infrastructure in Testcontainers Integration; this does not add transactional adapter coverage to Data Isolation |
 
 **Upgrading from the older Testcontainers beta:** replace the positional
 `@RequiredContainer(Container.PostgreSql)` declaration with its named form:
@@ -921,12 +921,12 @@ the data declaration. `@ApplicationIntegrationTest` belongs to Testcontainers In
 application lifecycle and is not required for these direct database/repository setups.
 
 **Resource handoff in 0.1.0:** `injectedContainerResources()` now reads the active file lifecycle,
-so it cannot supply resources during Data Integration's earlier initialization. The manual
+so it cannot supply resources during Data Isolation's earlier initialization. The manual
 global-setup examples below restore the shared resources through the exported Vitest context key
 or Jest resource-file environment key. They do not install Testcontainers' generated file setup.
 
 **Why dedicated containers need more work:** Testcontainers Integration's generated file setup
-starts them in `beforeAll`. Data Integration initializes its file context earlier, in Vitest's
+starts them in `beforeAll`. Data Isolation initializes its file context earlier, in Vitest's
 `aroundAll` or Jest's `run_start`, so the dedicated resource is not yet available at that point.
 Simply stacking annotations or generated setup files does not establish the necessary startup
 and teardown ordering. Use the shared launcher or manual global setup documented here.
