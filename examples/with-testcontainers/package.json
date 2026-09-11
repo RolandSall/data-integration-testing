@@ -9,7 +9,7 @@
   "dependencies": {
     "@integration-testing/data": "workspace:*",
     "vitest": "~4.1.11",
-    "@integration-testing/testcontainers": "0.1.0-beta.0",
+    "@integration-testing/testcontainers": "0.1.0",
     "pg": "^8.16.3"
   }
 }

@@ -17,7 +17,7 @@ bun run --cwd examples/nestjs-inventory test
 ```
 
 The default command starts PostgreSQL with the published
-`@integration-testing/testcontainers@0.1.0-beta.0` package. Before creating test workers, it creates
+[@integration-testing/testcontainers@0.1.0](https://www.npmjs.com/package/@integration-testing/testcontainers) package. Before creating test workers, it creates
 one owned application schema and applies the application's real migrations once. Both parallel
 PostgreSQL files use that migrated schema. Each test only inserts, updates, queries, and rolls back.
 There is no DDL in test scenarios. SQLite is also migrated before workers and runs files serially
