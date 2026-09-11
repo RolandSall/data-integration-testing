@@ -2,9 +2,23 @@
 
 **Write isolated database integration tests with a consistent API across supported test runners and database clients.**
 
-Configure your database and test runner once. Each test file then needs one declaration and
-access to the shared context. Use the client from that context for every database operation you
-want rolled back:
+Your repository test inserts a product, updates its stock, and checks the result. The test passes.
+But the product is still in the database. Run the test again and the same SKU may already exist;
+run another test and it may see data left behind by the first.
+
+Now every test needs a cleanup strategy: delete the rows it created, handle foreign keys in the
+right order, and make sure cleanup still runs when an assertion fails.
+
+**Give each test a transaction, then roll back its writes automatically.**
+
+That is what this library provides through rollback-only transactions. After your application's
+real migrations have prepared the database, each test gets its own transaction. Its fixtures,
+test body, and teardown use the same transaction-scoped client. When the attempt finishes, the
+library rolls back those writes, whether the test passed or failed. You do not write per-test
+`DELETE` cleanup for operations made through that client.
+
+Configure your database and test runner once. Then declare each transactional test file and use
+the shared context:
 
 ```ts
 import { declareDataIntegrationTest } from '@integration-testing/data';
@@ -23,30 +37,6 @@ test('creates a product', async () => {
 This is the test-file API after setup, using pg and runner globals. The quick start below supplies
 the context and runner configuration. Prefer annotations? `@DataIntegrationTest` on one marker
 class has the same effect as `declareDataIntegrationTest()`; use one form per file.
-
-## What it does and does not do
-
-Use this library for **direct database and repository integration tests**: queries, constraints,
-and multi-write application operations that can run through the supplied transaction client.
-
-| The library handles | Your application supplies |
-| --- | --- |
-| A transaction for each test attempt, including retries | A reachable test database and its real application migrations |
-| The same typed transaction client in `beforeEach`, the test, and `afterEach` | Awaited database operations using that client |
-| Rollback after successful and failing tests, with cleanup failures reported | Repository or NestJS provider wiring that passes the transaction client into application code |
-| Runner lifecycle integration for Jest and Vitest | One context module and the appropriate runner setup |
-
-**It does not automatically make all application activity transactional.** It does not patch a
-production client, intercept HTTP requests, capture another pool's writes, or roll back messages
-and background jobs. It does not run migrations automatically or create your application tables.
-`beforeAll` and `afterAll` are outside per-test transactions. Concurrent tests within an activated
-file are unsupported; parallel files need deliberate fixture and database ownership choices.
-See [the rollback boundaries](#rollback-boundaries) before using it for end-to-end tests.
-
-You can already write rollback hooks by hand. This package is useful when you want to reuse one
-typed context and lifecycle contract across supported clients and runners. For one small suite,
-ordinary hooks may be sufficient; the [handwritten comparison](#examples-comparison-and-verification)
-uses the same application behavior so you can decide.
 
 ## Recommended pairing: Testcontainers Integration + Data Integration
 
@@ -77,15 +67,24 @@ Further reading: [NestJS provider wiring](#inject-the-transaction-into-nestjs-re
 [native runner global setup](#alternative-native-testcontainers-global-setup),
 [Testcontainers compatibility](#compatibility-between-the-two-packages),
 [migrations and parallel files](#migrations-parallel-files-and-resource-ownership),
+[what it does and does not do](#what-it-does-and-does-not-do),
 [rollback boundaries](#rollback-boundaries), [API and troubleshooting](#lifecycle-contract-and-troubleshooting),
 [other runners](#runner-neutral-core-and-other-runners), and [runnable examples](#examples-comparison-and-verification).
 
 ## Compatibility and installation
 
-| Runner | PostgreSQL clients | SQLite client |
+| Database | Supported database clients | Supported test runners |
 | --- | --- | --- |
-| Jest 30.1+, below 31, with the package's Node environment | pg 8, Prisma 6.19, TypeORM 0.3 | Prisma 6.19 |
-| Vitest 4.1 | pg 8, Prisma 6.19, TypeORM 0.3 | Prisma 6.19 |
+| PostgreSQL | pg 8, Prisma 6.19, TypeORM 0.3 | Jest 30.1+ (below 31), Vitest 4.1 |
+| SQLite (optional, without Docker) | Prisma 6.19 | Jest 30.1+ (below 31), Vitest 4.1 |
+
+Jest requires this package's Node test environment, as shown in the Jest setup below.
+
+**SQLite is an optional database; Prisma is the client used to access it.** The optional SQLite
+example uses Prisma to connect to a local database file, so it can demonstrate transactional
+tests without a database server or Docker. The main walkthrough uses PostgreSQL. If your
+application runs on PostgreSQL, use PostgreSQL for tests that must verify its database behavior;
+the SQLite example is not a replacement for that coverage.
 
 Use Node.js 22.22 or newer. The real-database matrix covers both runners and all combinations
 above. Other engines, newer client majors, and other runners are outside that verified matrix.
@@ -929,6 +928,30 @@ Simply stacking annotations or generated setup files does not establish the nece
 and teardown ordering. Use the shared launcher or manual global setup documented here.
 A dedicated container is per test file, not per test transaction; it would still need the same
 application migrations and explicit transaction-client wiring.
+
+## What it does and does not do
+
+Use this library for **direct database and repository integration tests**: queries, constraints,
+and multi-write application operations that can run through the supplied transaction client.
+
+| The library handles | Your application supplies |
+| --- | --- |
+| A transaction for each test attempt, including retries | A reachable test database and its real application migrations |
+| The same typed transaction client in `beforeEach`, the test, and `afterEach` | Awaited database operations using that client |
+| Rollback after successful and failing tests, with cleanup failures reported | Repository or NestJS provider wiring that passes the transaction client into application code |
+| Runner lifecycle integration for Jest and Vitest | One context module and the appropriate runner setup |
+
+**It does not automatically make all application activity transactional.** It does not patch a
+production client, intercept HTTP requests, capture another pool's writes, or roll back messages
+and background jobs. It does not run migrations automatically or create your application tables.
+`beforeAll` and `afterAll` are outside per-test transactions. Concurrent tests within an activated
+file are unsupported; parallel files need deliberate fixture and database ownership choices.
+See [the rollback boundaries](#rollback-boundaries) before using it for end-to-end tests.
+
+You can already write rollback hooks by hand. This package is useful when you want to reuse one
+typed context and lifecycle contract across supported clients and runners. For one small suite,
+ordinary hooks may be sufficient; the [handwritten comparison](#examples-comparison-and-verification)
+uses the same application behavior so you can decide.
 
 ## Rollback boundaries
 
