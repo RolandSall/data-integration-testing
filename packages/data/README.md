@@ -2,135 +2,83 @@
 
 **Write isolated database integration tests with a consistent API across supported test runners and database clients.**
 
-Configure the database and runner once. Add `@DataIntegrationTest` or
-`declareDataIntegrationTest()` to a test file. Its fixtures, tests, and teardown then use a
-transaction-scoped client whose writes roll back after every test attempt.
+Configure your database and test runner once. Each test file then needs one declaration and
+access to the shared context. Use the client from that context for every database operation you
+want rolled back:
+
+```ts
+import { declareDataIntegrationTest } from '@integration-testing/data';
+import { dataContext } from './data-context.js';
+
+declareDataIntegrationTest();
+
+test('creates a product', async () => {
+  const client = dataContext.getCurrentContext().client;
+  await client.query('INSERT INTO products (sku, stock) VALUES ($1, $2)', ['book', 10]);
+  const result = await client.query('SELECT stock FROM products WHERE sku = $1', ['book']);
+  expect(result.rows[0].stock).toBe(10);
+}); // The insert is rolled back, including when the assertion fails.
+```
+
+This is the test-file API after setup, using pg and runner globals. The quick start below supplies
+the context and runner configuration. Prefer annotations? `@DataIntegrationTest` on one marker
+class has the same effect as `declareDataIntegrationTest()`; use one form per file.
+
+## What it does and does not do
+
+Use this library for **direct database and repository integration tests**: queries, constraints,
+and multi-write application operations that can run through the supplied transaction client.
+
+| The library handles | Your application supplies |
+| --- | --- |
+| A transaction for each test attempt, including retries | A reachable test database and its real application migrations |
+| The same typed transaction client in `beforeEach`, the test, and `afterEach` | Awaited database operations using that client |
+| Rollback after successful and failing tests, with cleanup failures reported | Repository or NestJS provider wiring that passes the transaction client into application code |
+| Runner lifecycle integration for Jest and Vitest | One context module and the appropriate runner setup |
+
+**It does not automatically make all application activity transactional.** It does not patch a
+production client, intercept HTTP requests, capture another pool's writes, or roll back messages
+and background jobs. It does not run migrations automatically or create your application tables.
+`beforeAll` and `afterAll` are outside per-test transactions. Concurrent tests within an activated
+file are unsupported; parallel files need deliberate fixture and database ownership choices.
+See [the rollback boundaries](#rollback-boundaries) before using it for end-to-end tests.
+
+You can already write rollback hooks by hand. This package is useful when you want to reuse one
+typed context and lifecycle contract across supported clients and runners. For one small suite,
+ordinary hooks may be sufficient; the [handwritten comparison](#examples-comparison-and-verification)
+uses the same application behavior so you can decide.
 
 ## Recommended pairing: Testcontainers Integration + Data Integration
 
 **Real infrastructure, isolated test data: two tools that work hand in hand.**
 
 Use **[@integration-testing/testcontainers](https://www.npmjs.com/package/@integration-testing/testcontainers)**
-together with this library for repeatable integration tests against a real PostgreSQL instance.
-Both packages belong to the `@integration-testing` family and solve complementary parts of the setup.
-Explore the [Testcontainers Integration repository](https://github.com/RolandSall/testcontainers-integration)
-for its infrastructure APIs and the [published npm package](https://www.npmjs.com/package/@integration-testing/testcontainers)
-for installation:
+to start a disposable PostgreSQL instance and provide its connection URL. Apply your application's
+real migrations once, then use **@integration-testing/data** to roll back each test's writes.
+Testcontainers Integration stops the infrastructure after the run; Data Integration manages the
+test transactions and its configured clients.
 
-- **[@integration-testing/testcontainers](https://www.npmjs.com/package/@integration-testing/testcontainers)**
-  starts disposable infrastructure, provides typed connection resources with mapped ports, and
-  stops the containers and network after the run. Use its published package to keep Docker
-  provisioning out of individual tests.
-- **@integration-testing/data** connects your database client to that infrastructure, makes a
-  transaction-scoped client available to fixtures and repositories, and rolls back each test's
-  writes under Jest or Vitest.
+The [Testcontainers Integration repository](https://github.com/RolandSall/testcontainers-integration)
+documents its infrastructure APIs. The [complete paired setup](#complete-setup-testcontainers-with-pg-and-either-runner)
+below adds Docker provisioning to the same context and tests used in the quick start. Both libraries
+remain independent: an existing database, Docker Compose, or a CI database service also works.
 
-```text
-@integration-testing/testcontainers
-  Start PostgreSQL once and supply its connection URL
-    Application migration command
-      Apply the same versioned migrations used to deploy the application, once
-        Jest or Vitest workers
-          @integration-testing/data
-            BEGIN → beforeEach → test → afterEach → ROLLBACK
-  Stop PostgreSQL after all workers finish
-```
+## Start here
 
-Infrastructure lifecycle and transaction isolation remain separate. You can use the two
-libraries together, use this library with an existing database, or use Testcontainers Integration
-without this library for tests that need different data-cleanup behavior.
+1. [Install the package and your runner](#compatibility-and-installation).
+2. [Follow the quick start](#quick-start-with-pg-and-vitest): configure once, declare a test file, and run it.
+3. [Use Jest](#configure-jest-once) if that is your runner; keep the same context and tests.
+4. [Add Testcontainers Integration](#complete-setup-testcontainers-with-pg-and-either-runner) for a disposable database.
 
-**Try the complete [NestJS inventory demo](https://github.com/RolandSall/data-integration-testing/tree/codex/cross-runner-data-tests/examples/nestjs-inventory)**
-to see the pairing with Prisma, pg, and TypeORM, under both Jest and Vitest:
+For another client, replace the pg context with [Prisma](#use-prisma-instead-of-pg) or
+[TypeORM](#use-typeorm-instead-of-pg). For no Docker, use [Prisma/SQLite](#alternative-prisma-with-sqlite-without-docker).
 
-```sh
-git clone https://github.com/RolandSall/data-integration-testing.git
-cd data-integration-testing
-git checkout codex/cross-runner-data-tests
-bun install --frozen-lockfile
-bun run build
-bun run generate
-bun run typecheck
-bun run --cwd examples/nestjs-inventory test
-```
-
-The example uses the published Testcontainers Integration package and the local compiled Data
-Integration package. `bun run test:consumer` also copies it outside the workspace and installs the
-packed data library to verify real consumer behavior without workspace links or source aliases.
-Its default run applies application migrations before workers start and verifies rollback through
-independent root connections. Docker is required for its PostgreSQL container runs.
-
-### Compatibility between the two packages
-
-The examples pin **`@integration-testing/testcontainers@0.1.0`**. The connection URL is the
-boundary between the libraries: Testcontainers Integration supplies a real database endpoint;
-Data Integration creates the configured driver and controls transactions through its adapter.
-Neither library needs to import the other's source, and Data Integration does not require
-Testcontainers as a dependency.
-
-| Setup with Testcontainers Integration 0.1.0 | Data Integration compatibility |
-| --- | --- |
-| Shared `ContainerRuntime` launcher | Verified with PostgreSQL + pg, Prisma 6.19, and TypeORM 0.3 under Jest and Vitest, using an installed data package archive |
-| Shared native `createVitestContainerGlobalSetup` | Verified with pg, global migrations, and transaction-scoped tests |
-| Shared native `createJestContainerGlobalSetup` | Verified with pg while retaining `@integration-testing/data/jest/environment` |
-| Named `@RequiredContainer` with `isolation: 'shared'` and manual global setup | Demonstrated by the small Vitest example; both files select the same named database |
-| Generated annotation/project file setup, including `isolation: 'dedicated'` | Not a supported drop-in pairing in this release; file lifecycle coordination is still needed |
-| RabbitMQ, MongoDB, or SQL Server containers | Available infrastructure in Testcontainers Integration; this does not add transactional adapter coverage to Data Integration |
-
-**Upgrading from the older Testcontainers beta:** replace the positional
-`@RequiredContainer(Container.PostgreSql)` declaration with its named form:
-
-```ts
-import { Container, RequiredContainer } from '@integration-testing/testcontainers';
-import { DataIntegrationTest } from '@integration-testing/data';
-
-@RequiredContainer({
-  database: { kind: Container.PostgreSql, isolation: 'shared' },
-})
-@DataIntegrationTest
-export class InventoryIntegrationTest {}
-```
-
-With discovery-based global setup, select that resource using
-`resources.getNamed('database', Container.PostgreSql)`. The two decorators have separate jobs:
-`@RequiredContainer` declares infrastructure, while `@DataIntegrationTest` activates the data
-runner integration. The complete imports and setup are in the
-[small container example](https://github.com/RolandSall/data-integration-testing/tree/codex/cross-runner-data-tests/examples/with-testcontainers).
-The explicit runtime launcher and `requiredContainers` global-setup examples below need only
-the data declaration. `@ApplicationIntegrationTest` belongs to Testcontainers Integration's
-application lifecycle and is not required for these direct database/repository setups.
-
-**Resource handoff in 0.1.0:** `injectedContainerResources()` now reads the active file lifecycle,
-so it cannot supply resources during Data Integration's earlier initialization. The manual
-global-setup examples below restore the shared resources through the exported Vitest context key
-or Jest resource-file environment key. They do not install Testcontainers' generated file setup.
-
-**Why dedicated containers need more work:** Testcontainers Integration's generated file setup
-starts them in `beforeAll`. Data Integration initializes its file context earlier, in Vitest's
-`aroundAll` or Jest's `run_start`, so the dedicated resource is not yet available at that point.
-Simply stacking annotations or generated setup files does not establish the necessary startup
-and teardown ordering. Use the shared launcher or manual global setup documented here.
-A dedicated container is per test file, not per test transaction; it would still need the same
-application migrations and explicit transaction-client wiring.
-
-## Contents
-
-- [Compatibility between the two packages](#compatibility-between-the-two-packages)
-- [Compatibility and installation](#compatibility-and-installation)
-- [Complete setup: Testcontainers with pg and either runner](#complete-setup-testcontainers-with-pg-and-either-runner)
-- [Configure Vitest once](#configure-vitest-once)
-- [Configure Jest once](#configure-jest-once)
-- [Write the same transactional tests](#write-the-same-transactional-tests)
-- [Alternative: native Testcontainers global setup](#alternative-native-testcontainers-global-setup)
-- [Alternative: an existing PostgreSQL database](#alternative-an-existing-postgresql-database)
-- [Use Prisma instead of pg](#use-prisma-instead-of-pg)
-- [Use TypeORM instead of pg](#use-typeorm-instead-of-pg)
-- [Alternative: Prisma with SQLite, without Docker](#alternative-prisma-with-sqlite-without-docker)
-- [Inject the transaction into NestJS repositories](#inject-the-transaction-into-nestjs-repositories)
-- [Migrations, parallel files, and resource ownership](#migrations-parallel-files-and-resource-ownership)
-- [Lifecycle contract and troubleshooting](#lifecycle-contract-and-troubleshooting)
-- [Runner-neutral core and other runners](#runner-neutral-core-and-other-runners)
-- [Examples, comparison, and verification](#examples-comparison-and-verification)
+Further reading: [NestJS provider wiring](#inject-the-transaction-into-nestjs-repositories),
+[native runner global setup](#alternative-native-testcontainers-global-setup),
+[Testcontainers compatibility](#compatibility-between-the-two-packages),
+[migrations and parallel files](#migrations-parallel-files-and-resource-ownership),
+[rollback boundaries](#rollback-boundaries), [API and troubleshooting](#lifecycle-contract-and-troubleshooting),
+[other runners](#runner-neutral-core-and-other-runners), and [runnable examples](#examples-comparison-and-verification).
 
 ## Compatibility and installation
 
@@ -148,7 +96,8 @@ not establish SQL Server transaction support.
 published to npm. To use it in another application now, build and pack this repository:
 
 ```sh
-# From this repository's root:
+# From a checkout of this repository (Bun 1.3.5):
+bun install --frozen-lockfile
 bun run build
 npm pack ./packages/data --pack-destination .
 ```
@@ -160,16 +109,14 @@ npm install --save-dev ./vendor/integration-testing-data-0.1.0-beta.0.tgz
 ```
 
 After publication, the installation will be `npm install --save-dev @integration-testing/data@beta`.
-The Testcontainers Integration package is already published. The examples and independent consumer
-pin its tested stable `0.1.0` release for reproducibility:
+For the pg quick start, install the driver and TypeScript tooling:
 
 ```sh
-npm install --save-dev @integration-testing/testcontainers@0.1.0
 npm install pg@8
 npm install --save-dev typescript@5.9.3 @types/node@22 @types/pg@8
 ```
 
-Choose a runner, or install both to run the same scenarios under both:
+Install the runner you use. The quick start uses Vitest; the Jest section provides the alternative:
 
 ```sh
 # Vitest
@@ -182,20 +129,288 @@ npm install --save-dev jest@~30.4.2 jest-environment-node@~30.4.1 ts-jest@^29.4.
 Runner and driver dependencies are optional peers, confined to their corresponding entrypoints.
 Core, database adapters, and Jest integration support ESM and CommonJS. Vitest integration is ESM.
 
+## Quick start with pg and Vitest
+
+This path assumes you have a **test PostgreSQL database** and an application migration command
+named `migrate` that reads `DATABASE_URL`. The example queries the inventory application's
+`products` table with `sku` and `stock` columns; use your real tables and migrations in your app.
+To get a database through Docker instead, finish the context, runner, and test setup here, then
+use the [Testcontainers launcher](#complete-setup-testcontainers-with-pg-and-either-runner) for the run step.
+
+Set `"type": "module"` in your application's `package.json`. The files below belong in your
+application, and commands run from its root. If your runner and TypeScript configuration already
+exist, merge the relevant options into them.
+
+### 1. Configure the database once
+
+```ts
+// test/data-context.ts
+import { Pool } from 'pg';
+import { createDataIntegrationTestContext } from '@integration-testing/data';
+import { PgTransactionAdapter } from '@integration-testing/data/pg';
+
+export function databaseUrl(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL must identify a migrated test database');
+  return url;
+}
+
+export const dataContext = createDataIntegrationTestContext({
+  getResources: databaseUrl,
+  createDatabase: async (url) => url, // Select the already migrated database.
+  createClient: async (url) => new Pool({ connectionString: url }),
+  closeClient: async (pool) => { await pool.end(); },
+  dropDatabase: async () => {}, // This configuration selects a database; it does not own or drop it.
+  transactions: new PgTransactionAdapter(),
+});
+```
+
+This context selects a database URL and manages a pool for each activated file.
+`createDatabase` does not create a database in this example, and `dropDatabase` deliberately
+does nothing because the configuration does not own the database. Run migrations before workers
+start, as shown in step 4; no `prepareDatabase` callback is needed. The context has no runner imports.
+Export it once and import that same instance from your test files.
+
+<a id="configure-vitest-once"></a>
+
+### 2. Connect Vitest once
+
+```ts
+// test/vitest.setup.ts
+import { installVitestDataIntegrationTestSupport } from '@integration-testing/data/vitest';
+import { dataContext } from './data-context.js';
+
+installVitestDataIntegrationTestSupport(dataContext);
+```
+
+```ts
+// vitest.integration.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    include: ['test/**/*.integration.test.ts'],
+    setupFiles: ['./test/vitest.setup.ts'],
+    maxWorkers: 2,
+    hookTimeout: 30_000,
+    testTimeout: 30_000,
+  },
+});
+```
+
+<details>
+<summary>TypeScript setup for a new project (tsconfig.json)</summary>
+
+Use this root configuration for the examples, including the optional decorator form:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "experimentalDecorators": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "noEmit": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.integration.config.ts"]
+}
+```
+
+</details>
+
+The setup file installs the lifecycle hooks once per test-file environment. The installer checks
+for a data declaration after collection; files without one remain inactive. Keep default file
+isolation enabled and run tests sequentially within each file.
+
+The existing `installVitestDataIntegrationTestSupport(configuration)` signature is also supported
+and returns a context manager. The factory-based form above makes the context reusable across runners.
+
+<a id="write-the-same-transactional-tests"></a>
+
+### 3. Declare a file and write tests
+
+Use ordinary runner tests and hooks. With the runner globals configured above, this file also
+runs unchanged under Jest:
+
+```ts
+// test/products.integration.test.ts
+import { declareDataIntegrationTest } from '@integration-testing/data';
+import { dataContext } from './data-context.js';
+
+declareDataIntegrationTest();
+
+beforeEach(async () => {
+  await dataContext.getCurrentContext().client.query(
+    'INSERT INTO products (sku, stock) VALUES ($1, $2)',
+    ['book', 10],
+  );
+});
+
+test('decrements stock in the current transaction', async () => {
+  const client = dataContext.getCurrentContext().client;
+  await client.query('UPDATE products SET stock = stock - 3 WHERE sku = $1', ['book']);
+  const result = await client.query<{ stock: number }>(
+    'SELECT stock FROM products WHERE sku = $1', ['book'],
+  );
+  expect(result.rows[0]?.stock).toBe(7);
+});
+
+test('starts with a fresh fixture after the previous test', async () => {
+  const result = await dataContext.getCurrentContext().client.query<{ stock: number }>(
+    'SELECT stock FROM products WHERE sku = $1', ['book'],
+  );
+  expect(result.rows[0]?.stock).toBe(10);
+});
+
+afterEach(() => {
+  // The transaction context is still accessible in teardown.
+  expect(dataContext.getCurrentContext().client).toBeDefined();
+});
+```
+
+The file marker activates the whole file, including nested `describe` suites. It does not create
+a test-class instance or register test methods. Continue using your runner's ordinary test API.
+`beforeEach`, test bodies, and `afterEach` share one transaction per attempt; `beforeAll` and
+`afterAll` run outside those transactions.
+
+If you prefer annotations, replace the `declareDataIntegrationTest` import and call with:
+
+```ts
+import { DataIntegrationTest } from '@integration-testing/data';
+
+@DataIntegrationTest
+export class ProductRepositoryTest {}
+```
+
+Use exactly one declaration per activated file. Do not use both forms in the same file. Unmarked
+files do not activate database resources. The declaration must execute during test-file collection,
+before tests run. Tests inside activated files run sequentially; do not use `.concurrent`.
+
+### 4. Migrate and run
+
+```sh
+export DATABASE_URL='postgresql://test_user:test_password@localhost:5432/inventory_test'
+npm run migrate
+npx vitest run --config vitest.integration.config.ts
+```
+
+Both tests should pass: the first sees stock `7`; the second starts from its own fixture with
+stock `10`. Their inserted product is rolled back. No `BEGIN`, `ROLLBACK`, or per-test delete
+hooks are needed in this test file. Existing committed rows remain unchanged by rollback.
+Choose fixture keys that do not conflict with pre-existing data or other parallel tests.
+
+**For the next test file:** import the same context, add one declaration, and write tests using
+`dataContext.getCurrentContext().client`. The database configuration and installer are reused.
+Read the client inside a test or its per-test hooks; do not capture it at module scope.
+
+### What happens when a file runs
+
+```text
+Before workers: start/select database -> run real application migrations once
+  Activated file: select database -> create root client/pool -> beforeAll
+    Test attempt: BEGIN -> beforeEach -> test body -> afterEach -> ROLLBACK
+    Next attempt: a new transaction, including on a retry
+  After the file: afterAll -> close root client/pool -> configured resource cleanup
+After workers: infrastructure owner stops the disposable database, if it created one
+```
+
+A declaration activates the file; the runner installer connects that declaration to execution.
+The database adapter supplies the transaction-bound client. Together they keep awaited operations
+in the same transaction through the test's fixtures and teardown. Application code needs to receive
+that client, for example through constructor injection; see [NestJS wiring](#inject-the-transaction-into-nestjs-repositories).
+
+## Configure Jest once
+
+Jest needs **both** the installer and the Data Integration Node environment. The installer
+registers the context inside Jest's test sandbox; the environment connects it to test execution.
+The annotation by itself cannot activate this behavior. Keep quick start steps 1 and 3, and use
+this section in place of its Vitest setup. The root TypeScript options are shown in the quick
+start; select Jest types as described below.
+
+```ts
+// test/jest.setup.ts
+import { installJestDataIntegrationTestSupport } from '@integration-testing/data/jest';
+import { dataContext } from './data-context.js';
+
+installJestDataIntegrationTestSupport(dataContext);
+```
+
+```js
+// jest.integration.config.cjs
+module.exports = {
+  testEnvironment: '@integration-testing/data/jest/environment',
+  setupFilesAfterEnv: ['<rootDir>/test/jest.setup.ts'],
+  testMatch: ['**/test/**/*.integration.test.ts'],
+  maxWorkers: 2,
+  testTimeout: 30_000,
+  moduleNameMapper: { '^(\\.{1,2}/.*)\\.js$': '$1' },
+  transform: {
+    '^.+\\.ts$': ['ts-jest', { tsconfig: './tsconfig.jest.json' }],
+  },
+};
+```
+
+<details>
+<summary>TypeScript setup for Jest (tsconfig.jest.json)</summary>
+
+Create this alongside the quick start's root `tsconfig.json`:
+
+```json
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": ["node", "jest"],
+    "isolatedModules": true
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["test/vitest.setup.ts"]
+}
+```
+
+This Jest-specific config is for the CommonJS test transform; use the root NodeNext configuration
+for standalone TypeScript checking of package exports. If using only Jest, set the root `tsconfig.json` types to `["node", "jest"]` as well. The `.js`
+relative imports above are mapped to TypeScript application files by Jest; the installed library
+still resolves through its public package exports.
+
+</details>
+
+After the database is migrated, run the same `test/products.integration.test.ts` file:
+
+```sh
+npx jest --config jest.integration.config.cjs
+```
+
+Keep `DATABASE_URL` exported as in the quick start. For a disposable database, use the launcher
+below with `jest` instead. You do not need to install Vitest in a Jest-only project.
+
 ## Complete setup: Testcontainers with pg and either runner
 
-This walkthrough uses **one launcher for both runners**, with the published
+Keep the quick start's context, runner setup, and tests. This walkthrough adds **one launcher
+for both runners**, with the published
 `@integration-testing/testcontainers` runtime API. Run the commands from your application's root.
 The runner-specific native global-setup alternatives are shown later. Set `"type": "module"` in
 your application's `package.json` for this walkthrough; Jest configuration files remain `.cjs`.
 
-The application must already have a real migration command named `migrate` in `package.json`.
+Install the published infrastructure package:
+
+```sh
+npm install --save-dev @integration-testing/testcontainers@0.1.0
+```
+
+Docker must be running. The application must already have a real migration command named
+`migrate` in `package.json`.
 That command must read `DATABASE_URL`. Use the same migration files and migration tool as your
 application deployment, such as your Prisma migration command or TypeORM migration command.
-The [demo's migration entrypoint](https://github.com/RolandSall/data-integration-testing/blob/codex/cross-runner-data-tests/examples/nestjs-inventory/src/migrate.ts)
+The [demo's migration entrypoint](https://github.com/RolandSall/data-integration-testing/blob/main/examples/nestjs-inventory/src/migrate.ts)
 is a complete example with migration history. Do not create a different schema inside each test.
 
-The test below assumes those migrations create the inventory application's `products` table,
+The quick start tests assume those migrations create the inventory application's `products` table,
 with `sku` and `stock` columns. Substitute your own application tables and repository operations.
 
 ### 1. Run application migrations against the supplied URL
@@ -274,197 +489,17 @@ workers start. Each worker creates its own client pool; live Docker handles and 
 objects are not transferred between processes. The container is stopped after the runner exits,
 including an ordinary failing test run. Forced process termination is not a JavaScript cleanup guarantee.
 
-### 3. Export one shared database context
-
-```ts
-// test/data-context.ts
-import { Pool } from 'pg';
-import { createDataIntegrationTestContext } from '@integration-testing/data';
-import { PgTransactionAdapter } from '@integration-testing/data/pg';
-
-export function databaseUrl(): string {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('DATABASE_URL must identify a migrated test database');
-  return url;
-}
-
-export const dataContext = createDataIntegrationTestContext({
-  getResources: databaseUrl,
-  createDatabase: async (url) => url, // Select the already migrated database.
-  createClient: async (url) => new Pool({ connectionString: url }),
-  closeClient: async (pool) => { await pool.end(); },
-  dropDatabase: async () => {}, // The launcher owns the container, not this file.
-  transactions: new PgTransactionAdapter(),
-});
-```
-
-There is intentionally no `prepareDatabase` migration callback here. Migrations finished before
-workers started. This shared context module contains no runner imports and works with either
-setup below. Export the context once and import that same instance from your test files.
-
-## Configure Vitest once
-
-```ts
-// test/vitest.setup.ts
-import { installVitestDataIntegrationTestSupport } from '@integration-testing/data/vitest';
-import { dataContext } from './data-context.js';
-
-installVitestDataIntegrationTestSupport(dataContext);
-```
-
-```ts
-// vitest.integration.config.ts
-import { defineConfig } from 'vitest/config';
-
-export default defineConfig({
-  test: {
-    globals: true,
-    include: ['test/**/*.integration.test.ts'],
-    setupFiles: ['./test/vitest.setup.ts'],
-    maxWorkers: 2,
-    hookTimeout: 30_000,
-    testTimeout: 30_000,
-  },
-});
-```
-
-Enable decorators in the application's root TypeScript configuration. For a minimal ESM project:
-
-```json
-{
-  "compilerOptions": {
-    "target": "ES2023",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "experimentalDecorators": true,
-    "esModuleInterop": true,
-    "strict": true,
-    "noEmit": true,
-    "types": ["node", "vitest/globals"]
-  },
-  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.integration.config.ts"]
-}
-```
-
-Run the complete container/migration/test lifecycle:
+### 3. Run the paired lifecycle
 
 ```sh
 node scripts/test-integration.mjs vitest
-```
-
-The existing `installVitestDataIntegrationTestSupport(configuration)` signature is also supported
-and returns a context manager. The factory-based form above makes the context reusable across runners.
-
-## Configure Jest once
-
-Jest needs **both** the installer and the Data Integration Node environment. The installer
-registers the context inside Jest's test sandbox; the environment connects it to test execution.
-The annotation by itself cannot activate this behavior.
-
-```ts
-// test/jest.setup.ts
-import { installJestDataIntegrationTestSupport } from '@integration-testing/data/jest';
-import { dataContext } from './data-context.js';
-
-installJestDataIntegrationTestSupport(dataContext);
-```
-
-```js
-// jest.integration.config.cjs
-module.exports = {
-  testEnvironment: '@integration-testing/data/jest/environment',
-  setupFilesAfterEnv: ['<rootDir>/test/jest.setup.ts'],
-  testMatch: ['**/test/**/*.integration.test.ts'],
-  maxWorkers: 2,
-  testTimeout: 30_000,
-  moduleNameMapper: { '^(\\.{1,2}/.*)\\.js$': '$1' },
-  transform: {
-    '^.+\\.ts$': ['ts-jest', { tsconfig: './tsconfig.jest.json' }],
-  },
-};
-```
-
-Create `tsconfig.jest.json`:
-
-```json
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "Node",
-    "types": ["node", "jest"],
-    "isolatedModules": true
-  },
-  "include": ["src/**/*.ts", "test/**/*.ts"],
-  "exclude": ["test/vitest.setup.ts"]
-}
-```
-
-This Jest-specific config is for the CommonJS test transform; use the root NodeNext configuration
-for standalone TypeScript checking of package exports. If using only Jest, set the root `tsconfig.json` types to `["node", "jest"]` as well. The `.js`
-relative imports above are mapped to TypeScript application files by Jest; the installed library
-still resolves through its public package exports.
-
-```sh
+# Or, with the Jest configuration:
 node scripts/test-integration.mjs jest
 ```
 
-## Write the same transactional tests
-
-With runner globals enabled as above, this file runs unchanged under either runner:
-
-```ts
-// test/products.integration.test.ts
-import { DataIntegrationTest } from '@integration-testing/data';
-import { dataContext } from './data-context.js';
-
-@DataIntegrationTest
-export class ProductRepositoryTest {}
-
-beforeEach(async () => {
-  await dataContext.getCurrentContext().client.query(
-    'INSERT INTO products (sku, stock) VALUES ($1, $2)',
-    ['book', 10],
-  );
-});
-
-test('decrements stock in the current transaction', async () => {
-  const client = dataContext.getCurrentContext().client;
-  await client.query('UPDATE products SET stock = stock - 3 WHERE sku = $1', ['book']);
-  const result = await client.query<{ stock: number }>(
-    'SELECT stock FROM products WHERE sku = $1', ['book'],
-  );
-  expect(result.rows[0]?.stock).toBe(7);
-});
-
-test('starts with a fresh fixture after the previous test', async () => {
-  const result = await dataContext.getCurrentContext().client.query<{ stock: number }>(
-    'SELECT stock FROM products WHERE sku = $1', ['book'],
-  );
-  expect(result.rows[0]?.stock).toBe(10);
-});
-
-afterEach(() => {
-  // The transaction context is still accessible in teardown.
-  expect(dataContext.getCurrentContext().client).toBeDefined();
-});
-```
-
-The file marker activates the whole file, including nested `describe` suites. It does not create
-a test-class instance or register test methods. Continue using your runner's ordinary test API.
-`beforeEach`, test bodies, and `afterEach` share one transaction per attempt; `beforeAll` and
-`afterAll` run outside those transactions.
-
-If you prefer no marker class, replace the decorator and class with:
-
-```ts
-import { declareDataIntegrationTest } from '@integration-testing/data';
-declareDataIntegrationTest();
-```
-
-Use exactly one declaration per activated file. Do not use both forms in the same file. Unmarked
-files do not activate database resources. The declaration must execute during test-file collection,
-before tests run. Tests inside activated files run sequentially; do not use `.concurrent`.
+The launcher supplies `DATABASE_URL`, invokes your real migrations once, runs the selected runner,
+and stops its container. You do not need to export a database URL for this mode. Your transactional
+test files and `test/data-context.ts` stay the same.
 
 ## Alternative: native Testcontainers global setup
 
@@ -520,7 +555,7 @@ For TypeScript checking of the shared JavaScript migration helper, add a declara
 export function runApplicationMigrations(databaseUrl: string): Promise<void>;
 ```
 
-The [small container example](https://github.com/RolandSall/data-integration-testing/tree/codex/cross-runner-data-tests/examples/with-testcontainers)
+The [small container example](https://github.com/RolandSall/data-integration-testing/tree/main/examples/with-testcontainers)
 also demonstrates annotation discovery: omit `requiredContainers` and use the named
 `@RequiredContainer({ database: { kind: Container.PostgreSql, isolation: 'shared' } })` alongside
 `@DataIntegrationTest` on the same marker class. In that setup, global migrations and each file's
@@ -592,7 +627,7 @@ The `prepareResources` callback completes migrations before the database is expo
 ## Alternative: an existing PostgreSQL database
 
 For Docker Compose, a CI service container, or an existing disposable test database, keep the
-same data context, runner setup, and tests from the launcher walkthrough. Supply `DATABASE_URL`,
+same data context, runner setup, and tests from the quick start. Supply `DATABASE_URL`,
 run your migrations once, and invoke the runner directly:
 
 ```sh
@@ -618,7 +653,7 @@ before either runner starts. It never drops the supplied database itself.
 
 ## Use Prisma instead of pg
 
-Keep the infrastructure launcher, real migration step, runner installer, and file declaration.
+Keep your database provisioning, real migration step, runner installer, and file declaration.
 Replace the pg context with a context using the application's generated Prisma 6.19 client:
 
 ```sh
@@ -705,7 +740,7 @@ export const dataContext = createDataIntegrationTestContext({
 ```
 
 `ProductEntity` and `ReservationEntity` are the application's own entity definitions; the demo
-has complete [EntitySchema examples](https://github.com/RolandSall/data-integration-testing/blob/codex/cross-runner-data-tests/examples/nestjs-inventory/src/typeorm-repository.ts).
+has complete [EntitySchema examples](https://github.com/RolandSall/data-integration-testing/blob/main/examples/nestjs-inventory/src/typeorm-repository.ts).
 Run your application migrations globally; do not enable schema synchronization or per-file migration execution.
 
 Inside a test or fixture, get repositories from the scoped manager:
@@ -842,6 +877,82 @@ The example's optional `bun run test:per-file` command (from `examples/nestjs-in
 file. Each schema runs the **same application migrations**. It is additional coverage, not the
 default setup and not permission for tests to invent tables that differ from production.
 
+## Compatibility between the two packages
+
+The examples pin **`@integration-testing/testcontainers@0.1.0`**. The connection URL is the
+boundary between the libraries: Testcontainers Integration supplies a real database endpoint;
+Data Integration creates the configured driver and controls transactions through its adapter.
+Neither library needs to import the other's source, and Data Integration does not require
+Testcontainers as a dependency.
+
+| Setup with Testcontainers Integration 0.1.0 | Data Integration compatibility |
+| --- | --- |
+| Shared `ContainerRuntime` launcher | Verified with PostgreSQL + pg, Prisma 6.19, and TypeORM 0.3 under Jest and Vitest, using an installed data package archive |
+| Shared native `createVitestContainerGlobalSetup` | Verified with pg, global migrations, and transaction-scoped tests |
+| Shared native `createJestContainerGlobalSetup` | Verified with pg while retaining `@integration-testing/data/jest/environment` |
+| Named `@RequiredContainer` with `isolation: 'shared'` and manual global setup | Demonstrated by the small Vitest example; both files select the same named database |
+| Generated annotation/project file setup, including `isolation: 'dedicated'` | Not a supported drop-in pairing in this release; file lifecycle coordination is still needed |
+| RabbitMQ, MongoDB, or SQL Server containers | Available infrastructure in Testcontainers Integration; this does not add transactional adapter coverage to Data Integration |
+
+**Upgrading from the older Testcontainers beta:** replace the positional
+`@RequiredContainer(Container.PostgreSql)` declaration with its named form:
+
+```ts
+import { Container, RequiredContainer } from '@integration-testing/testcontainers';
+import { DataIntegrationTest } from '@integration-testing/data';
+
+@RequiredContainer({
+  database: { kind: Container.PostgreSql, isolation: 'shared' },
+})
+@DataIntegrationTest
+export class InventoryIntegrationTest {}
+```
+
+With discovery-based global setup, select that resource using
+`resources.getNamed('database', Container.PostgreSql)`. The two decorators have separate jobs:
+`@RequiredContainer` declares infrastructure, while `@DataIntegrationTest` activates the data
+runner integration. The complete imports and setup are in the
+[small container example](https://github.com/RolandSall/data-integration-testing/tree/main/examples/with-testcontainers).
+The explicit runtime launcher and `requiredContainers` global-setup examples below need only
+the data declaration. `@ApplicationIntegrationTest` belongs to Testcontainers Integration's
+application lifecycle and is not required for these direct database/repository setups.
+
+**Resource handoff in 0.1.0:** `injectedContainerResources()` now reads the active file lifecycle,
+so it cannot supply resources during Data Integration's earlier initialization. The manual
+global-setup examples below restore the shared resources through the exported Vitest context key
+or Jest resource-file environment key. They do not install Testcontainers' generated file setup.
+
+**Why dedicated containers need more work:** Testcontainers Integration's generated file setup
+starts them in `beforeAll`. Data Integration initializes its file context earlier, in Vitest's
+`aroundAll` or Jest's `run_start`, so the dedicated resource is not yet available at that point.
+Simply stacking annotations or generated setup files does not establish the necessary startup
+and teardown ordering. Use the shared launcher or manual global setup documented here.
+A dedicated container is per test file, not per test transaction; it would still need the same
+application migrations and explicit transaction-client wiring.
+
+## Rollback boundaries
+
+The rollback guarantee covers **awaited operations using the supplied transaction client**.
+Use the following boundaries to decide whether this is the right isolation strategy for a test:
+
+| Situation | Behavior and what to do |
+| --- | --- |
+| Direct queries or repository calls using the supplied client | Included in the test transaction, including per-test fixtures and teardown |
+| A root client, another pool, or a separately created Prisma client | Outside the transaction; pass the scoped client to the repository instead |
+| A NestJS HTTP request or background worker | Not automatically enrolled; an independently configured connection may commit writes |
+| Application migrations or shared schema preparation | Application-owned; run once globally before workers for a shared database |
+| Explicit commits or database operations that cannot be rolled back | Outside the guarantee; use a separate isolation and cleanup strategy |
+| Queue messages, network calls, files, or other external effects | Not undone by database rollback; manage those resources separately |
+| Parallel test files sharing a database | Transactions isolate their uncommitted data, but locks, deadlocks, and sequences still matter; avoid conflicting fixtures |
+| `.concurrent` or inherited concurrent tests in an activated file | Rejected; run tests sequentially within the file |
+| Callback-style `done` tests/hooks | Unsupported; return a promise or use `async`/`await` |
+| A test timeout, unawaited work, or forced process termination | Arbitrary JavaScript cannot be forcibly cancelled; a timeout is not proof that application work stopped |
+| Cucumber or a custom runner | No shipped adapter; runner-neutral core does not mean automatic runner support |
+
+Do not retain a scoped client after its test ends. Context access is invalidated when the
+transaction finishes. Rollback/cleanup failures are reported as failures, not evidence of isolation;
+inspect and resolve them rather than assuming that a failed cleanup reset the database.
+
 ## Lifecycle contract and troubleshooting
 
 | API or option | Meaning |
@@ -914,6 +1025,25 @@ global `test` or `describe` or import private Circus modules. Vitest uses `aroun
 
 ## Examples, comparison, and verification
 
+**Try the complete [NestJS inventory demo](https://github.com/RolandSall/data-integration-testing/tree/main/examples/nestjs-inventory)**
+to see the pairing with Prisma, pg, and TypeORM, under both Jest and Vitest:
+
+```sh
+git clone https://github.com/RolandSall/data-integration-testing.git
+cd data-integration-testing
+bun install --frozen-lockfile
+bun run build
+bun run generate
+bun run typecheck
+bun run --cwd examples/nestjs-inventory test
+```
+
+The example uses the published Testcontainers Integration package and the local compiled Data
+Integration package. `bun run test:consumer` also copies it outside the workspace and installs the
+packed data library to verify real consumer behavior without workspace links or source aliases.
+Its default run applies application migrations before workers start and verifies rollback through
+independent root connections. Docker is required for its PostgreSQL container runs.
+
 All examples live in this repository under `examples/`. They are **not shipped to npm**. Only
 `packages/data` is published, with an allowlist of compiled outputs, declarations, README, and
 license. Example applications, migrations, tests, and their dependencies remain repository-only.
@@ -922,10 +1052,10 @@ archive, preserving independent consumer verification without a separate reposit
 
 | Example | What it demonstrates |
 | --- | --- |
-| [NestJS inventory demo](https://github.com/RolandSall/data-integration-testing/tree/codex/cross-runner-data-tests/examples/nestjs-inventory) | Published Testcontainers Integration, installed data artifact, all supported clients/runners, application migrations, independent rollback checks |
-| [Demo application provider wiring](https://github.com/RolandSall/data-integration-testing/blob/codex/cross-runner-data-tests/examples/nestjs-inventory/test/application.ts) | Explicit transaction-client injection without testing imports in application source |
-| [Handwritten pg baseline](https://github.com/RolandSall/data-integration-testing/blob/codex/cross-runner-data-tests/examples/nestjs-inventory/test/baseline.test.ts) | The same application scenarios with ordinary Jest/Vitest hooks |
-| [Small pg/container example](https://github.com/RolandSall/data-integration-testing/tree/codex/cross-runner-data-tests/examples/with-testcontainers) | Combined annotations and native Vitest global setup |
+| [NestJS inventory demo](https://github.com/RolandSall/data-integration-testing/tree/main/examples/nestjs-inventory) | Published Testcontainers Integration, installed data artifact, all supported clients/runners, application migrations, independent rollback checks |
+| [Demo application provider wiring](https://github.com/RolandSall/data-integration-testing/blob/main/examples/nestjs-inventory/test/application.ts) | Explicit transaction-client injection without testing imports in application source |
+| [Handwritten pg baseline](https://github.com/RolandSall/data-integration-testing/blob/main/examples/nestjs-inventory/test/baseline.test.ts) | The same application scenarios with ordinary Jest/Vitest hooks |
+| [Small pg/container example](https://github.com/RolandSall/data-integration-testing/tree/main/examples/with-testcontainers) | Combined annotations and native Vitest global setup |
 | [Small Prisma/SQLite example](https://github.com/RolandSall/data-integration-testing/tree/4a1805f20f60ebc8fd08d6156a682d3ca400caf0/examples/without-testcontainers) | Minimal adapter wiring; its tiny schema fixture is not the production-migration walkthrough |
 
 Ordinary hooks can implement transaction rollback. This library provides a consistent typed
