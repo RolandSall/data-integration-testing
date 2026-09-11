@@ -1,6 +1,6 @@
 # Data annotations with Testcontainers
 
-This project uses `@integration-testing/data` and the published npm version
+This project uses `@integration-testing/data-isolation` and the published npm version
 `@integration-testing/testcontainers@0.1.0`. It uses `pg`, not Prisma.
 
 From the repository root:
@@ -25,5 +25,5 @@ This example therefore uses manual global setup without the generated container 
 The container package stops the database after the run. No ports or credentials are hardcoded.
 
 To copy this project outside the workspace after publication, replace `workspace:*` with
-`0.1.0` in its `@integration-testing/data` dependency, then run `bun install`
+`0.1.0` in its `@integration-testing/data-isolation` dependency, then run `bun install`
 and `bun run test`. The TypeScript configuration is self-contained.

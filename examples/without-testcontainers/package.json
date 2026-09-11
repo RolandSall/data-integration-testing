@@ -8,7 +8,7 @@
     "generate": "prisma generate"
   },
   "dependencies": {
-    "@integration-testing/data": "workspace:*",
+    "@integration-testing/data-isolation": "workspace:*",
     "vitest": "~4.1.11",
     "@prisma/client": "6.19.3"
   },

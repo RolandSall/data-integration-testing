@@ -14,7 +14,7 @@ export function installJestDataIntegrationTestSupport<R, D, C, T>(
 ): DataIntegrationTestContextManager<R, D, C, T> {
   const sandbox = globalThis as typeof globalThis & JestDataGlobal;
   if (!sandbox.__integration_testing_data_environment__) {
-    throw new Error('Configure testEnvironment: "@integration-testing/data/jest/environment" before installing data support');
+    throw new Error('Configure testEnvironment: "@integration-testing/data-isolation/jest/environment" before installing data support');
   }
   if (sandbox[BRIDGE_KEY]) throw new Error('Install data integration support only once per test file');
   const timeout = options.transactionLifecycleTimeoutMs ?? 10_000;

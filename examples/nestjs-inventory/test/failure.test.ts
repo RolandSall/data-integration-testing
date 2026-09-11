@@ -1,4 +1,4 @@
-import { declareDataIntegrationTest } from '@integration-testing/data';
+import { declareDataIntegrationTest } from '@integration-testing/data-isolation';
 import type { TestingModule } from '@nestjs/testing';
 import { InventoryRepository, InventoryService } from '../src/inventory.js';
 import { applicationFor } from './application.js';

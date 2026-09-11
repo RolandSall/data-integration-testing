@@ -1,6 +1,6 @@
 # Transactional inventory integration tests
 
-A small NestJS inventory application exercising `@integration-testing/data` from this repository. The same repositories, transaction configuration, and test scenarios run under
+A small NestJS inventory application exercising `@integration-testing/data-isolation` from this repository. The same repositories, transaction configuration, and test scenarios run under
 Jest 30 and Vitest 4.1. The example is excluded from the published npm package.
 
 ## Run

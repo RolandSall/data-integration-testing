@@ -2,8 +2,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PrismaClient, type Prisma } from '../generated/client/index.js';
-import { PrismaTransactionAdapter } from '@integration-testing/data/prisma';
-import { installVitestDataIntegrationTestSupport } from '@integration-testing/data/vitest';
+import { PrismaTransactionAdapter } from '@integration-testing/data-isolation/prisma';
+import { installVitestDataIntegrationTestSupport } from '@integration-testing/data-isolation/vitest';
 
 export const dataContext = installVitestDataIntegrationTestSupport({
   getResources: () => tmpdir(),

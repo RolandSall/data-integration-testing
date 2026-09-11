@@ -1,4 +1,4 @@
-# @integration-testing/data
+# @integration-testing/data-isolation
 
 **Write isolated database integration tests with a consistent API across supported test runners and database clients.**
 
@@ -21,7 +21,7 @@ Configure your database and test runner once. Then declare each transactional te
 the shared context:
 
 ```ts
-import { declareDataIntegrationTest } from '@integration-testing/data';
+import { declareDataIntegrationTest } from '@integration-testing/data-isolation';
 import { dataContext } from './data-context.js';
 
 declareDataIntegrationTest();
@@ -44,7 +44,7 @@ class has the same effect as `declareDataIntegrationTest()`; use one form per fi
 
 Use **[@integration-testing/testcontainers](https://www.npmjs.com/package/@integration-testing/testcontainers)**
 to start a disposable PostgreSQL instance and provide its connection URL. Apply your application's
-real migrations once, then use **@integration-testing/data** to roll back each test's writes.
+real migrations once, then use **@integration-testing/data-isolation** to roll back each test's writes.
 Testcontainers Integration stops the infrastructure after the run; Data Integration manages the
 test transactions and its configured clients.
 
@@ -94,7 +94,7 @@ not establish SQL Server transaction support.
 **Release target: `0.1.0`.** Once this version is available on npm, install it with:
 
 ```sh
-npm install --save-dev @integration-testing/data@0.1.0
+npm install --save-dev @integration-testing/data-isolation@0.1.0
 ```
 
 Before publication, use a local package archive instead. Build and pack this repository:
@@ -109,7 +109,7 @@ npm pack ./packages/data --pack-destination .
 Copy the resulting archive to your application's `vendor` directory and install it:
 
 ```sh
-npm install --save-dev ./vendor/integration-testing-data-0.1.0.tgz
+npm install --save-dev ./vendor/integration-testing-data-isolation-0.1.0.tgz
 ```
 
 For the pg quick start, install the driver and TypeScript tooling:
@@ -149,8 +149,8 @@ exist, merge the relevant options into them.
 ```ts
 // test/data-context.ts
 import { Pool } from 'pg';
-import { createDataIntegrationTestContext } from '@integration-testing/data';
-import { PgTransactionAdapter } from '@integration-testing/data/pg';
+import { createDataIntegrationTestContext } from '@integration-testing/data-isolation';
+import { PgTransactionAdapter } from '@integration-testing/data-isolation/pg';
 
 export function databaseUrl(): string {
   const url = process.env.DATABASE_URL;
@@ -180,7 +180,7 @@ Export it once and import that same instance from your test files.
 
 ```ts
 // test/vitest.setup.ts
-import { installVitestDataIntegrationTestSupport } from '@integration-testing/data/vitest';
+import { installVitestDataIntegrationTestSupport } from '@integration-testing/data-isolation/vitest';
 import { dataContext } from './data-context.js';
 
 installVitestDataIntegrationTestSupport(dataContext);
@@ -241,7 +241,7 @@ runs unchanged under Jest:
 
 ```ts
 // test/products.integration.test.ts
-import { declareDataIntegrationTest } from '@integration-testing/data';
+import { declareDataIntegrationTest } from '@integration-testing/data-isolation';
 import { dataContext } from './data-context.js';
 
 declareDataIntegrationTest();
@@ -283,7 +283,7 @@ a test-class instance or register test methods. Continue using your runner's ord
 If you prefer annotations, replace the `declareDataIntegrationTest` import and call with:
 
 ```ts
-import { DataIntegrationTest } from '@integration-testing/data';
+import { DataIntegrationTest } from '@integration-testing/data-isolation';
 
 @DataIntegrationTest
 export class ProductRepositoryTest {}
@@ -336,7 +336,7 @@ start; select Jest types as described below.
 
 ```ts
 // test/jest.setup.ts
-import { installJestDataIntegrationTestSupport } from '@integration-testing/data/jest';
+import { installJestDataIntegrationTestSupport } from '@integration-testing/data-isolation/jest';
 import { dataContext } from './data-context.js';
 
 installJestDataIntegrationTestSupport(dataContext);
@@ -345,7 +345,7 @@ installJestDataIntegrationTestSupport(dataContext);
 ```js
 // jest.integration.config.cjs
 module.exports = {
-  testEnvironment: '@integration-testing/data/jest/environment',
+  testEnvironment: '@integration-testing/data-isolation/jest/environment',
   setupFilesAfterEnv: ['<rootDir>/test/jest.setup.ts'],
   testMatch: ['**/test/**/*.integration.test.ts'],
   maxWorkers: 2,
@@ -539,7 +539,7 @@ Replace `test/vitest.setup.ts` with:
 import { Container, ContainerResources } from '@integration-testing/testcontainers';
 import { CONTAINER_RESOURCES_CONTEXT_KEY } from '@integration-testing/testcontainers/vitest';
 import { inject } from 'vitest';
-import { installVitestDataIntegrationTestSupport } from '@integration-testing/data/vitest';
+import { installVitestDataIntegrationTestSupport } from '@integration-testing/data-isolation/vitest';
 import { dataContext } from './data-context.js';
 
 const resources = ContainerResources.fromSerializable(inject(CONTAINER_RESOURCES_CONTEXT_KEY));
@@ -611,7 +611,7 @@ import { readFileSync } from 'node:fs';
 import { Container, ContainerResources } from '@integration-testing/testcontainers';
 import type { SerializableContainerResources } from '@integration-testing/testcontainers';
 import { JEST_CONTAINER_RESOURCES_PATH_ENV } from '@integration-testing/testcontainers/jest';
-import { installJestDataIntegrationTestSupport } from '@integration-testing/data/jest';
+import { installJestDataIntegrationTestSupport } from '@integration-testing/data-isolation/jest';
 import { dataContext } from './data-context.js';
 
 const resourcePath = process.env[JEST_CONTAINER_RESOURCES_PATH_ENV];
@@ -668,8 +668,8 @@ npx prisma generate
 ```ts
 // test/data-context.ts
 import { PrismaClient, type Prisma } from '@prisma/client';
-import { createDataIntegrationTestContext } from '@integration-testing/data';
-import { PrismaTransactionAdapter } from '@integration-testing/data/prisma';
+import { createDataIntegrationTestContext } from '@integration-testing/data-isolation';
+import { PrismaTransactionAdapter } from '@integration-testing/data-isolation/prisma';
 
 export const dataContext = createDataIntegrationTestContext({
   getResources: () => {
@@ -718,8 +718,8 @@ npm install typeorm@~0.3.28 pg@8 reflect-metadata
 // test/data-context.ts
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
-import { createDataIntegrationTestContext } from '@integration-testing/data';
-import { TypeOrmTransactionAdapter } from '@integration-testing/data/typeorm';
+import { createDataIntegrationTestContext } from '@integration-testing/data-isolation';
+import { TypeOrmTransactionAdapter } from '@integration-testing/data-isolation/typeorm';
 import { ProductEntity, ReservationEntity } from '../src/entities.js';
 
 export const dataContext = createDataIntegrationTestContext({
@@ -795,7 +795,7 @@ are for applications whose SQLite migrations are maintained by Prisma.
 
 The testing library does not patch production clients. Override the database provider in a NestJS
 `TestingModule` with the scoped client. Application services and repositories should not import
-`@integration-testing/data`.
+`@integration-testing/data-isolation`.
 
 For an application exposing `DATABASE_CLIENT`, `InventoryRepository`, and `InventoryService`,
 the pg implementation can be tested like this:
@@ -803,7 +803,7 @@ the pg implementation can be tested like this:
 ```ts
 import 'reflect-metadata';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { DataIntegrationTest } from '@integration-testing/data';
+import { DataIntegrationTest } from '@integration-testing/data-isolation';
 import { dataContext } from './data-context.js';
 import { DATABASE_CLIENT, InventoryRepository, InventoryService } from '../src/inventory.js';
 import { PgInventoryRepository } from '../src/pg-repository.js';
@@ -892,7 +892,7 @@ Testcontainers as a dependency.
 | --- | --- |
 | Shared `ContainerRuntime` launcher | Verified with PostgreSQL + pg, Prisma 6.19, and TypeORM 0.3 under Jest and Vitest, using an installed data package archive |
 | Shared native `createVitestContainerGlobalSetup` | Verified with pg, global migrations, and transaction-scoped tests |
-| Shared native `createJestContainerGlobalSetup` | Verified with pg while retaining `@integration-testing/data/jest/environment` |
+| Shared native `createJestContainerGlobalSetup` | Verified with pg while retaining `@integration-testing/data-isolation/jest/environment` |
 | Named `@RequiredContainer` with `isolation: 'shared'` and manual global setup | Demonstrated by the small Vitest example; both files select the same named database |
 | Generated annotation/project file setup, including `isolation: 'dedicated'` | Not a supported drop-in pairing in this release; file lifecycle coordination is still needed |
 | RabbitMQ, MongoDB, or SQL Server containers | Available infrastructure in Testcontainers Integration; this does not add transactional adapter coverage to Data Integration |
@@ -902,7 +902,7 @@ Testcontainers as a dependency.
 
 ```ts
 import { Container, RequiredContainer } from '@integration-testing/testcontainers';
-import { DataIntegrationTest } from '@integration-testing/data';
+import { DataIntegrationTest } from '@integration-testing/data-isolation';
 
 @RequiredContainer({
   database: { kind: Container.PostgreSql, isolation: 'shared' },

@@ -46,12 +46,12 @@ try {
   const smoke = `
     import assert from 'node:assert/strict';
     import { createRequire } from 'node:module';
-    import { DataIntegrationTest, isDataIntegrationTest, AsyncTransactionContext } from '@integration-testing/data';
-    import { PrismaTransactionAdapter } from '@integration-testing/data/prisma';
-    import { TypeOrmTransactionAdapter } from '@integration-testing/data/typeorm';
-    import { installJestDataIntegrationTestSupport } from '@integration-testing/data/jest';
-    import { prismaSqlServerUrlFor } from '@integration-testing/data/prisma/sql-server';
-    import { PgTransactionAdapter } from '@integration-testing/data/pg';
+    import { DataIntegrationTest, isDataIntegrationTest, AsyncTransactionContext } from '@integration-testing/data-isolation';
+    import { PrismaTransactionAdapter } from '@integration-testing/data-isolation/prisma';
+    import { TypeOrmTransactionAdapter } from '@integration-testing/data-isolation/typeorm';
+    import { installJestDataIntegrationTestSupport } from '@integration-testing/data-isolation/jest';
+    import { prismaSqlServerUrlFor } from '@integration-testing/data-isolation/prisma/sql-server';
+    import { PgTransactionAdapter } from '@integration-testing/data-isolation/pg';
     const require = createRequire(import.meta.url);
     class Suite {}
     DataIntegrationTest(Suite);
@@ -63,13 +63,13 @@ try {
     assert.equal(typeof PgTransactionAdapter, 'function');
     assert.equal(typeof TypeOrmTransactionAdapter, 'function');
     assert.equal(typeof installJestDataIntegrationTestSupport, 'function');
-    assert.equal(typeof require('@integration-testing/data/typeorm').TypeOrmTransactionAdapter, 'function');
-    assert.equal(typeof require('@integration-testing/data/jest').installJestDataIntegrationTestSupport, 'function');
+    assert.equal(typeof require('@integration-testing/data-isolation/typeorm').TypeOrmTransactionAdapter, 'function');
+    assert.equal(typeof require('@integration-testing/data-isolation/jest').installJestDataIntegrationTestSupport, 'function');
     assert.equal(typeof prismaSqlServerUrlFor, 'function');
-    assert.equal(typeof require('@integration-testing/data/prisma/sql-server').prismaSqlServerUrlFor, 'function');
-    assert.equal(typeof require('@integration-testing/data').DataIntegrationTestContextManager, 'function');
-    assert.equal(typeof require('@integration-testing/data/prisma').PrismaTransactionAdapter, 'function');
-    assert.equal(typeof require('@integration-testing/data/pg').PgTransactionAdapter, 'function');
+    assert.equal(typeof require('@integration-testing/data-isolation/prisma/sql-server').prismaSqlServerUrlFor, 'function');
+    assert.equal(typeof require('@integration-testing/data-isolation').DataIntegrationTestContextManager, 'function');
+    assert.equal(typeof require('@integration-testing/data-isolation/prisma').PrismaTransactionAdapter, 'function');
+    assert.equal(typeof require('@integration-testing/data-isolation/pg').PgTransactionAdapter, 'function');
     for (const peer of ['vitest', 'pg', '@prisma/client', '@integration-testing/testcontainers', 'typeorm', 'jest', 'jest-environment-node', '@nestjs/common', '@nestjs/core', '@nestjs/testing']) {
       assert.throws(() => require.resolve(peer), { code: 'MODULE_NOT_FOUND' });
     }
@@ -77,14 +77,14 @@ try {
   await writeFile(join(core, 'smoke.mjs'), smoke);
   await run('node', ['smoke.mjs'], core);
   await run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', 'typescript@5.9.3', '@types/node@22', '@types/pg@8', 'typeorm@0.3.31', 'jest-environment-node@30.4.1'], core);
-  const consumer = `import { DataIntegrationTestContextManager, type TransactionAdapter } from '@integration-testing/data';
-import { PrismaTransactionAdapter } from '@integration-testing/data/prisma';
-import { PgTransactionAdapter } from '@integration-testing/data/pg';
-import { TypeOrmTransactionAdapter } from '@integration-testing/data/typeorm';
-import { installJestDataIntegrationTestSupport } from '@integration-testing/data/jest';
-import Environment from '@integration-testing/data/jest/environment';
+  const consumer = `import { DataIntegrationTestContextManager, type TransactionAdapter } from '@integration-testing/data-isolation';
+import { PrismaTransactionAdapter } from '@integration-testing/data-isolation/prisma';
+import { PgTransactionAdapter } from '@integration-testing/data-isolation/pg';
+import { TypeOrmTransactionAdapter } from '@integration-testing/data-isolation/typeorm';
+import { installJestDataIntegrationTestSupport } from '@integration-testing/data-isolation/jest';
+import Environment from '@integration-testing/data-isolation/jest/environment';
 void [TypeOrmTransactionAdapter, installJestDataIntegrationTestSupport, Environment];
-import { prismaSqlServerUrlFor } from '@integration-testing/data/prisma/sql-server';
+import { prismaSqlServerUrlFor } from '@integration-testing/data-isolation/prisma/sql-server';
 void prismaSqlServerUrlFor;
 const adapter: TransactionAdapter<string, number> = { rollbackOnly: async (_client, work) => work(1) };
 void [DataIntegrationTestContextManager, PrismaTransactionAdapter, PgTransactionAdapter, adapter];
@@ -104,7 +104,7 @@ void [DataIntegrationTestContextManager, PrismaTransactionAdapter, PgTransaction
     });
     const manifestPath = join(directory, 'package.json');
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as { dependencies: Record<string, string> };
-    manifest.dependencies['@integration-testing/data'] = tarball;
+    manifest.dependencies['@integration-testing/data-isolation'] = tarball;
     await writeFile(manifestPath, JSON.stringify(manifest, undefined, 2));
     await run('bun', ['install', '--network-concurrency', '8'], directory);
     if (example === 'without-testcontainers') await run('bun', ['run', 'generate'], directory);

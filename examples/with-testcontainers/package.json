@@ -7,7 +7,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@integration-testing/data": "workspace:*",
+    "@integration-testing/data-isolation": "workspace:*",
     "vitest": "~4.1.11",
     "@integration-testing/testcontainers": "0.1.0",
     "pg": "^8.16.3"

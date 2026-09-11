@@ -7,7 +7,7 @@
 - Add the TypeORM adapter and preserve errors across rollback and resource release.
 - Verify nested fixtures, retries, timeouts, expected failures, and declaration isolation in child processes.
 - Include a repository-only NestJS consumer verified outside the workspace against the packed package, covering the real database matrix and handwritten baselines.
-- Extract the database test annotation and lifecycle manager into `@integration-testing/data`.
+- Extract the database test annotation and lifecycle manager into `@integration-testing/data-isolation`.
 - Include optional Prisma and node-postgres rollback adapters.
 - Provide independent examples with the published Testcontainers package and without containers.
 - Preserve original setup failures when cleanup also fails.

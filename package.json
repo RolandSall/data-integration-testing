@@ -25,7 +25,8 @@
     "test:runners": "bun scripts/verify-runners.ts",
     "test:runners:minimum": "bun scripts/verify-runner-minimum.ts",
     "test:consumer": "bun scripts/verify-demo.ts",
-    "test:consumer:sqlite": "bun scripts/verify-demo.ts --sqlite"
+    "test:consumer:sqlite": "bun scripts/verify-demo.ts --sqlite",
+    "test:consumer:published": "bun scripts/verify-demo.ts --published"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
@@ -43,7 +44,7 @@
     "ts-jest": "^29.4.1",
     "typeorm": "~0.3.28",
     "pg": "^8.16.3",
-    "@integration-testing/data": "workspace:*"
+    "@integration-testing/data-isolation": "workspace:*"
   },
   "overrides": {
     "esbuild": "0.28.1",

@@ -10,7 +10,7 @@ await mkdir(directory, { recursive: true });
 await writeFile(join(directory, 'tsconfig.json'), JSON.stringify({ compilerOptions: { target: 'ES2023', experimentalDecorators: true, esModuleInterop: true } }));
 const context = `
 import { appendFileSync } from 'node:fs';
-import { createDataIntegrationTestContext } from '@integration-testing/data';
+import { createDataIntegrationTestContext } from '@integration-testing/data-isolation';
 export const record = (event) => appendFileSync(process.env.CASE_TRACE, event + '\\n');
 const scenario = process.env.CASE_NAME;
 let rollbackAttempts = 0;
@@ -40,7 +40,7 @@ export const dataContext = createDataIntegrationTestContext({
 await writeFile(join(directory, 'context.ts'), context);
 const common = `
 import assert from 'node:assert/strict';
-import { DataIntegrationTest, declareDataIntegrationTest } from '@integration-testing/data';
+import { DataIntegrationTest, declareDataIntegrationTest } from '@integration-testing/data-isolation';
 import { dataContext, record } from './context';
 `;
 const fixtures = `
@@ -74,8 +74,8 @@ const cases = [
 ];
 
 for (const runner of ['jest', 'vitest'] as const) {
-  await writeFile(join(directory, 'setup.ts'), `import { dataContext } from './context';\nimport { install${runner === 'jest' ? 'Jest' : 'Vitest'}DataIntegrationTestSupport } from '@integration-testing/data/${runner}';\ninstall${runner === 'jest' ? 'Jest' : 'Vitest'}DataIntegrationTestSupport(dataContext, { transactionLifecycleTimeoutMs: 100 });\n`);
-  await writeFile(join(directory, 'jest.config.cjs'), `module.exports = { rootDir: __dirname, testMatch: ['**/*.test.ts'], testEnvironment: '@integration-testing/data/jest/environment', setupFilesAfterEnv: ['<rootDir>/setup.ts'], transform: { '^.+\\\\.ts$': ['ts-jest', { diagnostics: false, tsconfig: { module: 'CommonJS', target: 'ES2023', experimentalDecorators: true, esModuleInterop: true, isolatedModules: true } }] } };`);
+  await writeFile(join(directory, 'setup.ts'), `import { dataContext } from './context';\nimport { install${runner === 'jest' ? 'Jest' : 'Vitest'}DataIntegrationTestSupport } from '@integration-testing/data-isolation/${runner}';\ninstall${runner === 'jest' ? 'Jest' : 'Vitest'}DataIntegrationTestSupport(dataContext, { transactionLifecycleTimeoutMs: 100 });\n`);
+  await writeFile(join(directory, 'jest.config.cjs'), `module.exports = { rootDir: __dirname, testMatch: ['**/*.test.ts'], testEnvironment: '@integration-testing/data-isolation/jest/environment', setupFilesAfterEnv: ['<rootDir>/setup.ts'], transform: { '^.+\\\\.ts$': ['ts-jest', { diagnostics: false, tsconfig: { module: 'CommonJS', target: 'ES2023', experimentalDecorators: true, esModuleInterop: true, isolatedModules: true } }] } };`);
   await writeFile(join(directory, 'vitest.config.mts'), `import { defineConfig } from 'vitest/config'; export default defineConfig({ test: { root: ${JSON.stringify(directory)}, include: ['**/*.test.ts'], allowOnly: true, globals: true, setupFiles: ['./setup.ts'], maxWorkers: 1 } });`);
   for (const scenario of cases) {
     // Jest has concurrent tests but no describe.concurrent; inheritance is exercised in Vitest.

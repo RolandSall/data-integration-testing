@@ -1,4 +1,4 @@
-import { DataIntegrationTest } from '@integration-testing/data';
+import { DataIntegrationTest } from '@integration-testing/data-isolation';
 import { beforeEach, expect, test } from 'vitest';
 import { dataContext } from './data.setup.js';
 

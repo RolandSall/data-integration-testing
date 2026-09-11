@@ -2,8 +2,8 @@ import { Pool } from 'pg';
 import { Container, ContainerResources } from '@integration-testing/testcontainers';
 import { inject } from 'vitest';
 import { CONTAINER_RESOURCES_CONTEXT_KEY } from '@integration-testing/testcontainers/vitest';
-import { PgTransactionAdapter } from '@integration-testing/data/pg';
-import { installVitestDataIntegrationTestSupport } from '@integration-testing/data/vitest';
+import { PgTransactionAdapter } from '@integration-testing/data-isolation/pg';
+import { installVitestDataIntegrationTestSupport } from '@integration-testing/data-isolation/vitest';
 
 export const dataContext = installVitestDataIntegrationTestSupport({
   getResources: () => ContainerResources.fromSerializable(inject(CONTAINER_RESOURCES_CONTEXT_KEY))

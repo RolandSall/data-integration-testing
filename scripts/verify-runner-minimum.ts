@@ -15,7 +15,7 @@ async function run(command: string, args: string[], env = process.env): Promise<
 try {
   const metadata = JSON.parse(await readFile(resolve('packages/data/package.json'), 'utf8')) as { version: string };
   await writeFile(join(directory, 'package.json'), JSON.stringify({ private: true, type: 'module', dependencies: {
-    '@integration-testing/data': `file:${resolve(`.artifacts/integration-testing-data-${metadata.version}.tgz`)}`,
+    '@integration-testing/data-isolation': `file:${resolve(`.artifacts/integration-testing-data-isolation-${metadata.version}.tgz`)}`,
     jest: '30.1.0', 'jest-environment-node': '30.1.0', 'ts-jest': '^29.4.1', typescript: '^5.9.2', vitest: '~4.1.11',
   } }));
   await run('npm', ['install', '--legacy-peer-deps', '--no-audit', '--no-fund']);

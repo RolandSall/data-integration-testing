@@ -28,7 +28,7 @@
     "typeorm": "~0.3.28"
   },
   "devDependencies": {
-    "@integration-testing/data": "workspace:*",
+    "@integration-testing/data-isolation": "workspace:*",
     "@integration-testing/testcontainers": "0.1.0",
     "@nestjs/testing": "^11.1.0",
     "@types/node": "^22.18.0",
