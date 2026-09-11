@@ -62,6 +62,8 @@ For the **0.1.1 release**, install:
 npm install --save-dev @integration-testing/data-isolation@0.1.1
 ```
 
+The lifecycle is database-independent: configure a transaction adapter for your database client.
+
 Use Node.js 22.22 or newer and install the client and runner you use. Runner and driver
 dependencies stay optional. Core, database adapters, and Jest integration support ESM and
 CommonJS; the Vitest integration uses ESM. Before npm publication, use the
@@ -97,21 +99,6 @@ including constraints, multi-write operations, and rollback verified from an ind
 Its installed-package check copies the project outside the workspace and installs a packed archive.
 See [consumer verification](https://github.com/RolandSall/data-integration-testing/tree/main/examples/nestjs-inventory#installed-package-verification-and-npm-contents).
 
-## Verified database coverage
-
-> **Database-independent lifecycle, with verified compatibility listed below.** Additional databases can work through compatible transaction adapters. MySQL and SQL Server have not yet been verified by this library's integration suite.
-
-| Database | Verified clients | Verified runners |
-| --- | --- | --- |
-| PostgreSQL | pg 8, Prisma 6.19, TypeORM 0.3 | Jest 30.1+ (below 31), Vitest 4.1 |
-| SQLite | Prisma 6.19 | Jest 30.1+ (below 31), Vitest 4.1 |
-
-This table records tested combinations. The core delegates transactions to a client adapter;
-Prisma and TypeORM adapters use their clients' transaction APIs, while the pg adapter is specific
-to PostgreSQL. Transaction support in an engine alone does not establish this library's integration
-coverage. SQLite is a database, accessed through Prisma in these examples. Test against your
-production database engine when verifying its behavior.
-
 ## What it does and does not do
 
 Use this library for direct database and repository tests whose operations can use the supplied
@@ -139,7 +126,7 @@ The core can be integrated with other runners, but Cucumber and custom harnesses
 runner adapter. A declaration alone does not supply that integration.
 
 Ordinary rollback hooks can be enough for a small suite. This library provides a reusable typed
-context and consistent lifecycle and failure reporting across the verified runners and clients.
+context and consistent lifecycle and failure reporting across supported runners and clients.
 No performance or maintenance savings are claimed without measurement.
 
 For details, see the [rollback boundaries](https://github.com/RolandSall/data-integration-testing/blob/main/docs/usage.md#rollback-boundaries),

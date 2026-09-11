@@ -3,7 +3,7 @@
 ## 0.1.1
 
 - Simplify the README with linked runnable examples and move detailed setup into a separate guide.
-- Clarify database-independent lifecycle design versus verified database and client coverage.
+- Explain the database-independent lifecycle without a database compatibility table.
 - Preserve the Testcontainers pairing and make rollback boundaries easy to find.
 - No runtime API changes.
 
