@@ -1,6 +1,6 @@
 # Publishing @integration-testing/data-isolation
 
-The first release target is **0.1.0**, published with npm's **latest** tag. Preparing the version,
+The release target is **0.1.1**, published with npm's **latest** tag. Preparing the version,
 passing CI, and opening a release PR do not publish the package.
 
 The GitHub owner is `RolandSall` and the npm organization scope is `@integration-testing`,
@@ -25,7 +25,7 @@ and examples installed outside the workspace from the packed artifact. The consu
 published `@integration-testing/testcontainers@0.1.0` package, not its source checkout.
 
 Merge the release PR only after its CI passes, then require CI on the final `main` commit to pass.
-Confirm `packages/data/package.json` contains version `0.1.0`. The version-availability check
+Confirm `packages/data/package.json` contains version `0.1.1`. The version-availability check
 accepts only a registry 404; an authentication or network error is not evidence of availability.
 
 ## First publication
@@ -42,7 +42,7 @@ publishing. The package does not inherit authentication or trusted-publisher set
 4. When ready to publish, run:
 
    ```sh
-   npm publish ./.artifacts/integration-testing-data-isolation-0.1.0.tgz --access public --tag latest
+   npm publish ./.artifacts/integration-testing-data-isolation-0.1.1.tgz --access public --tag latest
    ```
 
    This publishes the archive produced by the package checks. The publication is permanent for
@@ -50,7 +50,7 @@ publishing. The package does not inherit authentication or trusted-publisher set
 5. Check the registry rather than relying only on the command's exit status:
 
    ```sh
-   npm view @integration-testing/data-isolation@0.1.0 version dist.integrity repository --json
+   npm view @integration-testing/data-isolation@0.1.1 version dist.integrity repository --json
    npm view @integration-testing/data-isolation dist-tags --json
    ```
 
@@ -62,7 +62,7 @@ publishing. The package does not inherit authentication or trusted-publisher set
 
    It copies the application outside the workspace, installs the manifest's exact package version
    from npm (without a local tarball or source alias), and runs the same database matrix. Confirm
-   that `latest` resolves to `0.1.0` before announcing availability. A locally packed consumer
+   that `latest` resolves to `0.1.1` before announcing availability. A locally packed consumer
    does not prove registry installation.
 
 ## Configure trusted publishing for subsequent releases
