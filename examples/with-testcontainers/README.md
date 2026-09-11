@@ -25,5 +25,5 @@ This example therefore uses manual global setup without the generated container 
 The container package stops the database after the run. No ports or credentials are hardcoded.
 
 To copy this project outside the workspace after publication, replace `workspace:*` with
-`0.1.0` in its `@integration-testing/data-isolation` dependency, then run `bun install`
+`0.1.1` in its `@integration-testing/data-isolation` dependency, then run `bun install`
 and `bun run test`. The TypeScript configuration is self-contained.
