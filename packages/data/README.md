@@ -64,9 +64,10 @@ npm install --save-dev @integration-testing/data-isolation@0.1.1
 
 The lifecycle is database-independent: configure a transaction adapter for your database client.
 
-Use Node.js 22.22 or newer and install the client and runner you use. Runner and driver
-dependencies stay optional. Core, database adapters, and Jest integration support ESM and
-CommonJS; the Vitest integration uses ESM. Before npm publication, use the
+Requires Node.js 22.22+. Supports Vitest 4.1.x, Jest 30.x, pg 8.x, and TypeORM 0.3.x.
+Install only the runner and database client you use; runner and driver dependencies stay optional.
+Core, database adapters, and Jest integration support ESM and CommonJS; the Vitest integration
+uses ESM. Before npm publication, use the
 [local archive instructions](https://github.com/RolandSall/data-integration-testing/blob/main/docs/usage.md#installation).
 
 1. Export a shared context with `createDataIntegrationTestContext(configuration)`.
