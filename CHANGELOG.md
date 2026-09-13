@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+- Lead the README with the annotation setup and show the equivalent decorator-free declaration.
+- Link both declaration styles to runnable examples and clarify their shared runner setup.
+- Create a versioned GitHub Release after npm publication and installed-consumer verification.
+- No runtime API changes.
+
 ## 0.1.1
 
 - Simplify the README with linked runnable examples and move detailed setup into a separate guide.
