@@ -17,8 +17,34 @@ test body, and teardown use the same transaction-scoped client. When the attempt
 library rolls back those writes, whether the test passed or failed. You do not write per-test
 `DELETE` cleanup for operations made through that client.
 
-Configure your database and test runner once. Then declare each transactional test file and use
-the shared context:
+Configure your database and test runner once, then choose one of the two declarations below
+for each transactional test file. Both use the same shared context and runner setup.
+
+### Option 1: annotation
+
+Add `@DataIntegrationTest` to a marker class in the test file, then write ordinary tests:
+
+```ts
+import { DataIntegrationTest } from '@integration-testing/data-isolation';
+import { dataContext } from './data-context.js';
+
+@DataIntegrationTest
+export class ProductRepositoryTest {}
+
+test('creates a product', async () => {
+  const client = dataContext.getCurrentContext().client;
+  await client.query('INSERT INTO products (sku, stock) VALUES ($1, $2)', ['book', 10]);
+  const result = await client.query('SELECT stock FROM products WHERE sku = $1', ['book']);
+  expect(result.rows[0].stock).toBe(10);
+}); // The insert is rolled back, including when the assertion fails.
+```
+
+The annotation activates the entire file, including nested suites. The class is only a marker;
+keep test bodies in your runner's `test()` or `it()` calls.
+
+### Option 2: without decorators
+
+Call `declareDataIntegrationTest()` at the top level of the test file instead of adding a marker class:
 
 ```ts
 import { declareDataIntegrationTest } from '@integration-testing/data-isolation';
@@ -34,9 +60,10 @@ test('creates a product', async () => {
 }); // The insert is rolled back, including when the assertion fails.
 ```
 
-This example uses pg and your runner's globals after one-time setup. Prefer annotations?
-`@DataIntegrationTest` on one marker class has the same effect as `declareDataIntegrationTest()`.
-Use exactly one declaration per test file. Both forms require the runner setup linked below.
+Both examples use pg and your runner's globals after one-time setup. They have the same
+transaction behavior: `beforeEach`, the test, and `afterEach` share a client, followed by rollback.
+Use exactly one declaration per test file; do not combine the two forms. Neither declaration
+replaces the [database and runner setup](#install-and-configure-once).
 
 ## Two tools that work hand in hand
 
@@ -73,7 +100,9 @@ uses ESM. Before npm publication, use the
 1. Export a shared context with `createDataIntegrationTestContext(configuration)`.
 2. Install that context in your runner setup. Jest also requires the package's `/jest/environment`.
 3. Run your application's real migrations before workers start.
-4. Declare each transactional test file and use `dataContext.getCurrentContext().client`.
+4. Add [`@DataIntegrationTest`](#option-1-annotation) or
+   [`declareDataIntegrationTest()`](#option-2-without-decorators) to each test file and use
+   `dataContext.getCurrentContext().client`.
 
 The [setup guide](https://github.com/RolandSall/data-integration-testing/blob/main/docs/usage.md#quick-start-with-pg-and-vitest)
 provides complete files and commands. Choose your runnable example below to see the wiring in context.
@@ -85,6 +114,8 @@ explains its prerequisites and commands; the links to setup files show the actua
 
 | What you want to do | Runnable example and setup |
 | --- | --- |
+| Declare a file with `@DataIntegrationTest` | [Annotation example](https://github.com/RolandSall/data-integration-testing/blob/main/examples/nestjs-inventory/test/inventory.integration.test.ts) |
+| Declare a file without decorators | [Function example](https://github.com/RolandSall/data-integration-testing/blob/main/examples/nestjs-inventory/test/parallel.integration.test.ts) |
 | Start PostgreSQL with Testcontainers and use pg + Vitest | [Small paired example](https://github.com/RolandSall/data-integration-testing/tree/main/examples/with-testcontainers), [database context](https://github.com/RolandSall/data-integration-testing/blob/main/examples/with-testcontainers/test/data.setup.ts) |
 | Use pg, Prisma, or TypeORM with Jest and Vitest | [NestJS inventory application](https://github.com/RolandSall/data-integration-testing/tree/main/examples/nestjs-inventory), [shared context](https://github.com/RolandSall/data-integration-testing/blob/main/examples/nestjs-inventory/test/context.ts) |
 | Configure Jest | [Jest configuration](https://github.com/RolandSall/data-integration-testing/blob/main/examples/nestjs-inventory/jest.config.cjs), [setup](https://github.com/RolandSall/data-integration-testing/blob/main/examples/nestjs-inventory/test/jest.setup.ts) |
