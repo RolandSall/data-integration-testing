@@ -83,10 +83,10 @@ the connection URL.
 
 ## Install and configure once
 
-For the **0.1.1 release**, install:
+For the **0.1.2 release**, install:
 
 ```sh
-npm install --save-dev @integration-testing/data-isolation@0.1.1
+npm install --save-dev @integration-testing/data-isolation@0.1.2
 ```
 
 The lifecycle is database-independent: configure a transaction adapter for your database client.

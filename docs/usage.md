@@ -5,10 +5,10 @@ see the [examples table](https://github.com/RolandSall/data-integration-testing#
 
 ## Installation
 
-**Release target: `0.1.1`.** Once this version is available on npm, install it with:
+**Release target: `0.1.2`.** Once this version is available on npm, install it with:
 
 ```sh
-npm install --save-dev @integration-testing/data-isolation@0.1.1
+npm install --save-dev @integration-testing/data-isolation@0.1.2
 ```
 
 Before publication, use a local package archive instead. Build and pack this repository:
@@ -23,7 +23,7 @@ npm pack ./packages/data --pack-destination .
 Copy the resulting archive to your application's `vendor` directory and install it:
 
 ```sh
-npm install --save-dev ./vendor/integration-testing-data-isolation-0.1.1.tgz
+npm install --save-dev ./vendor/integration-testing-data-isolation-0.1.2.tgz
 ```
 
 For the pg quick start, install the driver and TypeScript tooling:

@@ -40,3 +40,37 @@ jobs:
         env:
           NPM_TAG: ${{ inputs.npm-tag }}
         run: npm publish ./packages/data --provenance --access public --tag "$NPM_TAG"
+      - name: Verify the published package with the standalone consumer
+        run: bun run test:consumer:published
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Create the version tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          NPM_TAG: ${{ inputs.npm-tag }}
+        shell: bash
+        run: |
+          version=$(node -p "require('./packages/data/package.json').version")
+          existing_tag=$(git ls-remote origin "refs/tags/v$version")
+          if [[ -n "$existing_tag" ]]; then
+            echo "Tag v$version already exists; inspect it before completing the release."
+            exit 1
+          fi
+          options=(--latest=false)
+          if [[ "$NPM_TAG" == "beta" || "$version" == *-* ]]; then
+            options=(--prerelease --latest=false)
+          elif [[ "$NPM_TAG" == "latest" ]]; then
+            options=(--latest)
+          fi
+          gh release create "v$version" \
+            --target "$RELEASE_COMMIT" \
+            --title "$version" \
+            --generate-notes \
+            "${options[@]}"
