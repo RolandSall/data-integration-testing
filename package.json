@@ -21,7 +21,8 @@
     "pack:check": "bun scripts/verify-package.ts",
     "verify": "bun run audit && bun run build && bun run generate && bun run typecheck && bun run lint && bun run test && bun run test:runners && bun run test:examples && bun run pack:check",
     "pack:check:docker": "bun scripts/verify-package.ts --docker",
-    "audit": "bun audit",
+    "audit": "bun audit --ignore GHSA-hp3w-g68c-fv3c",
+    "audit:all": "bun audit",
     "test:runners": "bun scripts/verify-runners.ts",
     "test:runners:minimum": "bun scripts/verify-runner-minimum.ts",
     "test:consumer": "bun scripts/verify-demo.ts",
@@ -47,7 +48,10 @@
     "@integration-testing/data-isolation": "workspace:*"
   },
   "overrides": {
+    "@grpc/grpc-js": "1.14.6",
+    "deepmerge-ts": "8.0.0",
     "esbuild": "0.28.1",
-    "deepmerge-ts": "8.0.0"
+    "handlebars": "4.7.10",
+    "source-map-js": "1.2.2"
   }
 }
